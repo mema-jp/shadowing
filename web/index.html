@@ -760,7 +760,8 @@ function renderArticle() {
 }
 /* 正在练的是不是正文里的某一句。两个前提：
    1) 这段必须来自当前打开的这篇文章（否则换一篇会亮一句无关的）
-   2) 手动截的范围常常跨句或只截半句，对不上就不高亮，别硬指一句 */
+   2) 所选范围要基本落在这一句里。只练句子的一小段（点某一段、或手动截半句）
+      仍该高亮那一句；只有跨了两句、哪句都不占主的时候才不高亮。 */
 function refMatchesArticle() {
   const r = state.ref;
   return !!(r && r.start != null && state.article && r.src && r.src === state.article.mp3);
@@ -773,7 +774,7 @@ function currentSentence() {
     if (!sp) return;
     const ov = Math.min(sp[1], r.end) - Math.max(sp[0], r.start);
     if (ov <= 0) return;
-    if (ov < refLen * 0.6 || ov < (sp[1] - sp[0]) * 0.4) return;   // 覆盖不够就不认
+    if (ov < refLen * 0.6) return;        // 所选范围大半落在别处 → 不算这一句
     if (ov > bestOv) { bestOv = ov; best = i; }
   });
   return best;
