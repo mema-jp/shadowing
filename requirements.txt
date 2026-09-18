@@ -1,0 +1,5 @@
+# 必选依赖。另外还需要系统里有 ffmpeg（见 README）。
+#   pip install -r requirements.txt
+praat-parselmouth>=0.4.3
+matplotlib>=3.5
+numpy>=1.22

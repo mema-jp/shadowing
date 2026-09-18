@@ -1,0 +1,7 @@
+# 可选：按假名（モーラ）反馈。装了才会出现「按假名对齐这篇」按钮和逐字反馈。
+# 会额外占用约 2GB 磁盘，第一次运行还要下载约 1.2GB 的 MMS 对齐模型。
+# 不装完全不影响其它功能。
+#   pip install -r requirements-align.txt
+torch>=2.1
+torchaudio>=2.1
+pykakasi>=2.2

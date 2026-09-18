@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2026 MEMA Co.,Ltd.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+NOTE ON CONTENT / 关于内容的说明
+
+The MIT license above covers the source code in this repository only.
+
+It does NOT cover any news text, audio, or other material retrieved from NHK
+News Web Easy by `fetch_nhk.py`, nor anything stored under `news/`. That
+material remains the property of NHK (日本放送協会). It is downloaded to your
+own machine for personal language study only, and must not be redistributed,
+republished, or included in any dataset or derivative work.
+
+上面的 MIT 许可只适用于本仓库的源代码。
+
+`fetch_nhk.py` 抓取的 NHK News Web Easy 文本与音频、以及 `news/` 目录下的任何
+内容，都不在此许可范围内，版权仍属日本放送協会（NHK）。这些内容只是下载到你自己
+的电脑上供个人语言学习使用，不得再分发、转载，也不得用于数据集或衍生作品。

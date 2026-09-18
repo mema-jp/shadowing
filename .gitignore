@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+build/
+dist/
+*.spec
+bin/ffmpeg
+bin/ffmpeg.exe
+news/
+segments/
+recordings/
+results/
+ShadowingData/
+nhk_auth.txt
+nhk_auth.json
+*.wav
+*.mp3
+*.png
+history.jsonl
+.DS_Store
+
+# README 里的截图要能提交
+!docs/*.png

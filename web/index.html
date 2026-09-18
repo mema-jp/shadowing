@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跟读练习</title>
+<style>
+  :root {
+    --bg: #F4F5F3; --paper: #FFFFFF; --ink: #1B2028; --muted: #66707C; --line: #DEE1DC;
+    --ref: #2457A6; --mine: #C8443E; --ok: #2E7D4F; --warn: #A6631B; --rec: #D4322C;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "PingFang SC", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--paper);
+    border-radius: var(--radius); padding: 6px 12px; }
+  button:hover { border-color: var(--ink); }
+  button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ref); outline-offset: 2px; }
+  button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.primary:hover { background: #000; }
+  input, textarea { font: inherit; border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; background: var(--paper); color: var(--ink); }
+  input[type=number] { width: 5.5em; }
+  h1 { font-size: 17px; font-weight: 600; margin: 0; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--paper); }
+  main { display: grid; grid-template-columns: minmax(320px, 5fr) minmax(360px, 7fr); gap: 28px; padding: 20px 24px 60px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  @media (min-width: 1800px) { html { font-size: 17px; } body { font-size: 1rem; } main { max-width: 1700px; } }
+  section { margin-bottom: 28px; }
+
+  /* 左栏：材料 */
+  .news-list { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); max-height: 260px; overflow: auto; }
+  .news-item { display: flex; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .news-item:last-child { border-bottom: 0; }
+  .news-item:hover { background: #F7F8F6; }
+  .news-item.active { background: #EAF0FA; }
+  .news-item .date { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 3px; }
+  .news-item .noaudio { color: var(--warn); font-size: 12px; }
+  .article { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; white-space: pre-wrap; line-height: 1.9; max-height: 320px; overflow: auto; font-size: 16px; }
+  .article rt { font-size: 9px; color: var(--muted); }
+  .cutter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .chunks { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); margin-top: 10px; max-height: 300px; overflow: auto; }
+  .chunk { display: grid; grid-template-columns: 2.2em 1fr auto auto; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+  .chunk:last-child { border-bottom: 0; }
+  .chunk.playing { background: #EAF0FA; }
+  .chunk .n { color: var(--muted); font-size: 12px; }
+  .chunk .len { color: var(--muted); font-size: 12px; }
+  .chunk .len.long { color: var(--warn); }
+  .chunk button { padding: 3px 10px; font-size: 13px; }
+  details.manual { margin-top: 10px; }
+  details.manual summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .pitch-wrap { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 10px 10px 4px; }
+  .pitch-wrap canvas { width: 100%; height: 280px; display: block; }
+  .pitch-legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); padding: 4px 6px 0; }
+  .pitch-legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+  .pitch-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 4px; transform: translate(-50%, -130%); white-space: nowrap; display: none; }
+  .chunk { grid-template-columns: 2.2em 1fr auto auto auto; }
+  .chunk .txt { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chunk .txt:empty::before { content: "（文字未对齐）"; color: var(--muted); font-size: 12px; }
+  .align-bar { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .mora-wrap { margin-top: 12px; }
+  .mora-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .mora { min-width: 44px; padding: 6px 4px 4px; border: 1px solid var(--line); border-radius: var(--radius); text-align: center; background: var(--paper); }
+  .mora .k { font-size: 18px; line-height: 1.2; }
+  .mora .p { font-size: 12px; margin-top: 3px; color: var(--muted); }
+  .mora .d { font-size: 11px; color: var(--muted); }
+  .mora.hi { border-color: var(--mine); background: #FBEFEE; }
+  .mora.lo { border-color: var(--ref); background: #EAF0FA; }
+  .mora.hi .p, .mora.lo .p { color: var(--ink); font-weight: 600; }
+  .mora .d.short { color: var(--warn); font-weight: 600; }
+  .mora .d.long { color: var(--warn); font-weight: 600; }
+  .mora.unsure { opacity: .5; }
+  .mora-legend { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  details.more { margin-top: 10px; }
+  details.more summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  audio { width: 100%; margin-top: 8px; }
+  .seg-list { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+  .seg-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .seg-item:last-child { border-bottom: 0; }
+  .seg-item.active { background: #EAF0FA; }
+  .seg-item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seg-item .x { color: var(--muted); border: 0; padding: 0 4px; }
+  .seg-item .x:hover { color: var(--mine); }
+
+  /* 右栏：练习 */
+  .practice { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .ref-name { font-size: 18px; font-weight: 600; line-height: 1.4; }
+  .rec-row { display: flex; align-items: center; gap: 16px; margin: 18px 0 6px; }
+  .rec-btn { width: 84px; height: 84px; border-radius: 50%; border: 3px solid var(--rec); background: var(--paper); display: grid; place-items: center; padding: 0; flex: none; }
+  .rec-btn .dot { width: 34px; height: 34px; border-radius: 50%; background: var(--rec); transition: border-radius .15s, transform .15s; }
+  .rec-btn.on .dot { border-radius: 6px; transform: scale(.75); }
+  .rec-btn.on { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(212,50,44,.15); } }
+  @media (prefers-reduced-motion: reduce) { .rec-btn.on { animation: none; } }
+  .rec-hint { color: var(--muted); }
+  .rec-hint b { color: var(--ink); font-weight: 600; }
+  .verdict { margin-top: 18px; padding: 12px 14px; border-radius: var(--radius); border-left: 4px solid var(--warn); background: #FBF6EE; }
+  .verdict.ok { border-left-color: var(--ok); background: #EEF6F0; }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .metric { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+  .metric .v { font-size: 26px; font-weight: 600; line-height: 1.1; }
+  .metric .v.bad { color: var(--mine); }
+  .metric .v.good { color: var(--ok); }
+  .metric .k { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .metric .d { font-size: 12px; margin-top: 6px; }
+  .chart { margin-top: 14px; }
+  .chart img { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); display: block; }
+  .history { margin-top: 18px; }
+  .history table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history td, .history th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  .history th { color: var(--muted); font-weight: 500; }
+  .history tr.best td { font-weight: 600; }
+  .history tr[data-i] { cursor: pointer; }
+  .history tr[data-i]:hover td { background: #F7F8F6; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  .log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre-wrap; background: #F7F8F6; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: 160px; overflow: auto; margin-top: 8px; }
+  .err { color: var(--mine); }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -2px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>跟读练习</h1>
+  <span class="muted small" id="summary"></span>
+  <button id="quitBtn" class="small" hidden>退出程序</button>
+</header>
+
+<main>
+  <!-- ================= 左栏 ================= -->
+  <div>
+    <section>
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h2>新闻</h2>
+        <button id="fetchBtn" class="small">抓今天的新闻</button>
+      </div>
+      <div class="news-list" id="newsList"><div class="empty">还没有新闻。点右上角抓一次，或先在终端运行 fetch_nhk.py</div></div>
+      <div class="log" id="fetchLog" hidden></div>
+    </section>
+
+    <section id="articleSec" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h2>正文</h2>
+        <label class="small muted"><input type="checkbox" id="rubyToggle" checked> 显示注音</label>
+      </div>
+      <div class="article" id="articleText"></div>
+      <audio id="articleAudio" controls preload="metadata"></audio>
+      <h2 style="margin-top:14px">按停顿自动切出来的句子</h2>
+      <div class="chunks" id="chunkList"><div class="empty"><span class="spin"></span> 正在切分…</div></div>
+      <div class="align-bar" id="alignBar" hidden><span id="alignMsg"></span><button id="alignBtn" class="small">按假名对齐这篇</button></div>
+      <p class="small muted" style="margin:6px 0 0">点「听」试听，「用这句」存为参考。1–3 秒的最好练；带 ⚠ 的偏长，可以先练，也可以在下面手动截更短的一段。</p>
+      <details class="manual">
+        <summary>手动截取</summary>
+        <div class="cutter">
+          <button id="markStart">起点 = 现在</button>
+          <input type="number" id="segStart" step="0.1" min="0" value="0"> s
+          <button id="markEnd">终点 = 现在</button>
+          <input type="number" id="segEnd" step="0.1" min="0" value="0"> s
+          <button id="previewSeg">试听这段</button>
+          <button id="saveSeg" class="primary">存为参考</button>
+        </div>
+        <p class="small muted" style="margin:6px 0 0">上面的播放器放到一句开头时点「起点」，句尾点「终点」，微调数字后试听。</p>
+      </details>
+    </section>
+
+    <section>
+      <h2>已截好的参考句</h2>
+      <div class="seg-list" id="segList"><div class="empty">还没有。从上面的正文里截一句，或在下面用系统朗读生成。</div></div>
+    </section>
+
+    <section id="ttsSec" hidden>
+      <h2>自己写一句（系统朗读）</h2>
+      <textarea id="ttsText" rows="2" style="width:100%" placeholder="おはようございます。今日はいい天気ですね。"></textarea>
+      <div class="cutter">
+        <select id="ttsVoice"><option value="Kyoko">Kyoko（女）</option><option value="Otoya">Otoya（男）</option></select>
+        <label class="small">语速 <input type="number" id="ttsRate" value="170" min="90" max="300" step="10"></label>
+        <button id="ttsBtn">生成参考</button>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">合成音的音高准确、节奏偏机械，适合练单个词或短句的声调；练语感还是用新闻。</p>
+    </section>
+  </div>
+
+  <!-- ================= 右栏 ================= -->
+  <div>
+    <div class="practice">
+      <h2>正在练</h2>
+      <div class="ref-name" id="refName">先在左边选一句参考</div>
+      <audio id="refAudio" controls preload="auto"></audio>
+      <label class="small muted"><input type="checkbox" id="refLoop"> 循环播放参考</label>
+
+      <div class="rec-row">
+        <button class="rec-btn" id="recBtn" disabled aria-label="录音"><span class="dot"></span></button>
+        <div class="rec-hint" id="recHint">选好参考后，按<b>空格</b>或点红点开始录音。可以连读三四遍再停，会自动挑最好的一遍。</div>
+      </div>
+
+      <div id="result" hidden>
+        <div class="verdict" id="verdict"></div>
+        <div class="metrics">
+          <div class="metric"><div class="v" id="mCorr">–</div><div class="k">形状（相关系数）</div><div class="d" id="dCorr"></div></div>
+          <div class="metric"><div class="v" id="mAmp">–</div><div class="k">幅度（相对播音员）</div><div class="d" id="dAmp"></div></div>
+          <div class="metric"><div class="v" id="mRatio">–</div><div class="k">速度（时长比）</div><div class="d" id="dRatio"></div></div>
+        </div>
+        <div class="small muted" id="takesLine" style="margin-top:8px"></div>
+        <div class="pitch-wrap" style="position:relative">
+          <canvas id="pitchCanvas"></canvas>
+          <div class="pitch-legend"><span><i style="background:var(--ref)"></i>播音员</span><span><i style="background:var(--mine)"></i>你（已按时间对齐）</span><span>纵轴：半音，相对各自中位数；横轴：秒</span></div>
+          <div class="pitch-tip" id="pitchTip"></div>
+        </div>
+        <div class="mora-wrap" id="moraWrap" hidden>
+          <div class="mora-row" id="moraRow"></div>
+          <div class="mora-legend">每个字：上面是你比播音员高(+)/低(−)几个半音，下面是长度占播音员的百分比。红框 = 你读高了，蓝框 = 你读低了；橙字 = 长度差得多。半透明 = 对齐不确定，别太信。</div>
+        </div>
+        <details class="more"><summary>查看详细图（含响度和节奏）</summary><div class="chart"><img id="chartImg" alt="音高对比图" loading="lazy"></div></details>
+        <audio id="myAudio" controls preload="auto" style="margin-top:10px"></audio>
+      </div>
+
+      <div class="history" id="history" hidden>
+        <h2>这句的记录</h2>
+        <table><thead><tr><th>#</th><th>时间</th><th>形状</th><th>幅度</th><th>速度</th><th></th></tr></thead><tbody id="histBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = { news: [], segments: [], article: null, ref: null, rec: null, chunks: [], history: {} };
+
+// ---------- 数据 ----------
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+async function loadAll() {
+  const j = await api('/api/news');
+  state.news = j.news; state.segments = j.segments;
+  $('ttsSec').hidden = !j.tts;
+  $('quitBtn').hidden = !j.frozen;
+  const sm = j.summary || {};
+  $('summary').textContent = sm.attempts ? `练过 ${sm.sentences} 句，共 ${sm.attempts} 次，最近 7 天 ${sm.week} 次，过关 ${sm.ok} 次。空格录音，R 重听。` : '左边选材料、截一句 → 右边听、录、看结果。空格键开始/停止录音，R 键重听参考。';
+  state.align = j.align;
+  renderNews(); renderSegs();
+}
+
+// ---------- 新闻 & 正文 ----------
+function renderNews() {
+  const el = $('newsList');
+  if (!state.news.length) return;
+  el.innerHTML = '';
+  state.news.forEach((n, i) => {
+    const d = document.createElement('div');
+    d.className = 'news-item' + (state.article === n ? ' active' : '');
+    d.innerHTML = `<span class="date">${n.date}</span><span>${n.title}${n.mp3 ? '' : ' <span class="noaudio">无音频</span>'}</span>`;
+    d.onclick = () => openArticle(n);
+    el.appendChild(d);
+  });
+}
+async function openArticle(n) {
+  state.article = n; renderNews();
+  const j = await api('/api/article?path=' + encodeURIComponent(n.txt));
+  state.articleRaw = j.text.split('\n').slice(2).join('\n').trim();  // 去掉标题和链接行
+  renderArticle();
+  $('articleSec').hidden = false;
+  const a = $('articleAudio');
+  if (n.mp3) { a.src = '/media?path=' + encodeURIComponent(n.mp3); a.hidden = false; }
+  else { a.removeAttribute('src'); a.hidden = true; }
+  $('segStart').value = 0; $('segEnd').value = 0;
+  state.chunks = [];
+  renderChunks();
+  if (n.mp3) await loadChunks();
+}
+async function loadChunks() {
+  const n = state.article;
+  try { const c = await api('/api/split?path=' + encodeURIComponent(n.mp3)); state.chunks = c.chunks; state.chunkTexts = c.texts; state.aligned = !!c.aligned || !!(c.texts && c.texts.some(t => t)); }
+  catch (e) { state.chunks = []; state.chunkTexts = null; state.aligned = false; }
+  try { renderChunks(true); } catch (e) { console.error(e); }
+  const bar = $('alignBar');
+  bar.hidden = false;
+  $('alignBtn').hidden = !state.align;
+  $('alignBtn').disabled = false;
+  if (!state.align) { $('alignMsg').textContent = '按假名功能不可用：运行 app.py 的这个 Python 里没有 torch。在同一个虚拟环境里 pip install torch torchaudio pykakasi，然后重启 app.py。'; }
+  else if (state.aligned) { $('alignMsg').textContent = '已按假名对齐，句子显示的是原文。'; $('alignBtn').textContent = '重新对齐'; }
+  else { $('alignMsg').textContent = '还没对齐文字。对齐后句子会显示原文，录音结果能精确到每个假名。第一次约 10–30 秒。'; $('alignBtn').textContent = '按假名对齐这篇'; }
+}
+$('alignBtn').onclick = async () => {
+  const n = state.article; if (!n || !n.mp3) return;
+  $('alignBtn').disabled = true; $('alignBtn').innerHTML = '<span class="spin"></span> 对齐中';
+  try {
+    await api('/api/align_article', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ txt: n.txt, mp3: n.mp3 }) });
+  } catch (e) { $('alignMsg').textContent = '对齐失败: ' + e.message; $('alignBtn').disabled = false; $('alignBtn').textContent = '重试'; return; }
+  let polls = 0;
+  const timer = setInterval(async () => {
+    let st;
+    try { st = await api('/api/align_status'); }
+    catch (e) { $('alignMsg').textContent = '查询进度出错: ' + e.message + '（app.py 是不是旧版本？）'; if (++polls > 5) { clearInterval(timer); $('alignBtn').disabled = false; $('alignBtn').textContent = '重试'; } return; }
+    if (st.state === 'running') { $('alignMsg').textContent = `${st.msg}　已用 ${st.elapsed} 秒`; return; }
+    clearInterval(timer);
+    if (st.state === 'done') {
+      const r = st.result || {};
+      $('alignMsg').textContent = `对齐完成：${r.mora} 拍` + (r.low > r.mora * 0.25 ? '，但有不少拍置信度低，文字可能有误' : '');
+      try { await loadChunks(); } catch (e) { $('alignMsg').textContent = '对齐完成，但刷新句子列表失败: ' + e.message; }
+    } else { $('alignMsg').textContent = '对齐失败: ' + (st.msg || st.state); $('alignBtn').disabled = false; $('alignBtn').textContent = '重试'; }
+  }, 1000);
+};
+function renderChunks(done) {
+  const el = $('chunkList');
+  if (!done) { el.innerHTML = '<div class="empty"><span class="spin"></span> 正在切分…</div>'; return; }
+  if (!state.chunks.length) { el.innerHTML = '<div class="empty">没切出来（可能这篇没有音频）。用下面的手动截取。</div>'; return; }
+  el.innerHTML = '';
+  state.chunks.forEach(([a, b], i) => {
+    const len = b - a;
+    const d = document.createElement('div');
+    d.className = 'chunk';
+    const txt = state.chunkTexts ? state.chunkTexts[i] : '';
+    d.innerHTML = `<span class="n">${i + 1}</span><span class="txt" title="${txt}">${txt}</span><span class="len${len > 4 ? ' long' : ''}">${len > 4 ? '⚠ ' : ''}${len.toFixed(1)} 秒</span><button data-act="play">听</button><button data-act="save" class="primary">用这句</button>`;
+    d.querySelector('[data-act=play]').onclick = () => playRange(a, b, d);
+    d.querySelector('[data-act=save]').onclick = () => saveSegment(a, b);
+    el.appendChild(d);
+  });
+}
+function playRange(a, b, rowEl) {
+  document.querySelectorAll('.chunk.playing').forEach(x => x.classList.remove('playing'));
+  if (rowEl) rowEl.classList.add('playing');
+  aa.currentTime = a; aa.play();
+  const stop = () => { if (aa.currentTime >= b) { aa.pause(); aa.removeEventListener('timeupdate', stop); if (rowEl) rowEl.classList.remove('playing'); } };
+  aa.addEventListener('timeupdate', stop);
+}
+async function saveSegment(a, b) {
+  const i = state.chunks.findIndex(c => c[0] === a && c[1] === b);
+  const txt = state.chunkTexts && i >= 0 ? state.chunkTexts[i] : '';
+  const label = txt ? txt : `${state.article.title} ${a.toFixed(1)}–${b.toFixed(1)}s`;
+  try {
+    const j = await api('/api/segment', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ src: state.article.mp3, start: a, end: b, label }) });
+    await loadAll(); useRef(j.path);
+  } catch (err) { alert(err.message); }
+}
+function renderArticle() {
+  const ruby = $('rubyToggle').checked;
+  let t = state.articleRaw || '';
+  t = t.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+  t = ruby ? t.replace(/([一-龥々]+)（([ぁ-ゖー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>') : t.replace(/（[ぁ-ゖー]+）/g, '');
+  $('articleText').innerHTML = t;
+}
+$('rubyToggle').onchange = renderArticle;
+$('quitBtn').onclick = async () => { if (confirm('退出跟读练习？')) { await fetch('/api/quit', {method:'POST'}); document.body.innerHTML = '<p style="padding:40px;color:#66707C">已退出，可以关闭这个标签页。</p>'; } };
+
+$('fetchBtn').onclick = async () => {
+  $('fetchBtn').disabled = true; $('fetchBtn').innerHTML = '<span class="spin"></span> 抓取中';
+  $('fetchLog').hidden = false; $('fetchLog').textContent = '正在抓取，通常 10–30 秒…';
+  try { const j = await api('/api/fetch', { method: 'POST' }); $('fetchLog').textContent = j.output; await loadAll(); }
+  catch (e) { $('fetchLog').textContent = '失败: ' + e.message; }
+  $('fetchBtn').disabled = false; $('fetchBtn').textContent = '抓今天的新闻';
+};
+
+// ---------- 截句 ----------
+const aa = $('articleAudio');
+$('markStart').onclick = () => $('segStart').value = aa.currentTime.toFixed(1);
+$('markEnd').onclick = () => $('segEnd').value = aa.currentTime.toFixed(1);
+$('previewSeg').onclick = () => {
+  const s = +$('segStart').value, e = +$('segEnd').value;
+  if (e <= s) return alert('终点要大于起点');
+  playRange(s, e);
+};
+$('saveSeg').onclick = () => {
+  const s = +$('segStart').value, e = +$('segEnd').value;
+  if (e <= s) return alert('终点要大于起点');
+  saveSegment(s, e);
+};
+
+// ---------- 参考句列表 ----------
+function segTitle(s) { return s.label || (s.tts ? '（朗读）' : s.name); }
+function renderSegs() {
+  const el = $('segList');
+  if (!state.segments.length) return;
+  el.innerHTML = '';
+  state.segments.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'seg-item' + (state.ref && state.ref.path === s.path ? ' active' : '');
+    const extra = s.start != null ? `${s.start.toFixed(1)}–${s.end.toFixed(1)}s` : (s.tts ? '朗读' : '');
+    d.innerHTML = `<span class="label">${segTitle(s)}</span><span class="small muted">${extra}</span><button class="x" title="删除">×</button>`;
+    d.onclick = e => { if (e.target.classList.contains('x')) return; useRef(s.path); };
+    d.querySelector('.x').onclick = async () => { if (confirm('删除这句参考？')) { await api('/api/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: s.path})}); if (state.ref && state.ref.path === s.path) state.ref = null; await loadAll(); } };
+    el.appendChild(d);
+  });
+}
+function useRef(path) {
+  state.ref = state.segments.find(s => s.path === path) || { path, name: path };
+  renderSegs();
+  $('refName').textContent = segTitle(state.ref);
+  const ra = $('refAudio'); ra.src = '/media?path=' + encodeURIComponent(path); ra.play().catch(()=>{});
+  $('recBtn').disabled = false;
+  $('result').hidden = true;
+  loadHistory(path);
+  const len = state.ref.end != null ? state.ref.end - state.ref.start : 0;
+  $('recHint').innerHTML = len > 6
+    ? '<b>这句有 ' + len.toFixed(0) + ' 秒，太长了。</b>整段对比看不出细节，建议回左边切一句 1–3 秒的。硬要练也行：按空格开始。'
+    : '按<b>空格</b>或点红点开始录音。可以连读三四遍再停，会自动挑最好的一遍。';
+  renderHistory();
+}
+$('refLoop').onchange = e => $('refAudio').loop = e.target.checked;
+
+$('ttsBtn').onclick = async () => {
+  const text = $('ttsText').value.trim(); if (!text) return;
+  $('ttsBtn').disabled = true;
+  try {
+    const j = await api('/api/tts', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, voice: $('ttsVoice').value, rate: +$('ttsRate').value }) });
+    await loadAll(); useRef(j.path);
+  } catch (e) { alert(e.message); }
+  $('ttsBtn').disabled = false;
+};
+
+// ---------- 录音 ----------
+async function startRec() {
+  if (!state.ref) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/mp4';
+    state.rec = new MediaRecorder(stream, { mimeType: mime });
+    state.chunks = [];
+    state.rec.ondataavailable = e => state.chunks.push(e.data);
+    state.rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); sendRecording(new Blob(state.chunks, { type: mime })); };
+    state.rec.start();
+    $('recBtn').classList.add('on');
+    $('recHint').innerHTML = '<b>录音中</b>…读完再按一次空格停止。可以连读几遍。';
+  } catch (e) { alert('打不开麦克风: ' + e.message + '\n浏览器地址栏左边确认已允许麦克风。'); }
+}
+function stopRec() {
+  if (state.rec && state.rec.state === 'recording') { state.rec.stop(); $('recBtn').classList.remove('on'); $('recHint').innerHTML = '<span class="spin"></span> 分析中…'; }
+}
+$('recBtn').onclick = () => (state.rec && state.rec.state === 'recording') ? stopRec() : startRec();
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); $('recBtn').click(); }
+  if (e.key === 'r' || e.key === 'R') { const ra = $('refAudio'); ra.currentTime = 0; ra.play(); }
+});
+
+async function sendRecording(blob) {
+  try {
+    const r = await api('/api/compare?ref=' + encodeURIComponent(state.ref.path), { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob });
+    showResult(r);
+    (state.history[state.ref.path] ||= []).push(r);
+    renderHistory();
+  } catch (e) { $('recHint').innerHTML = '<span class="err">分析失败: ' + e.message + '</span>　按<b>空格</b>再录一次。'; return; }
+  $('recHint').innerHTML = '再来一遍：按<b>空格</b>或点红点。';
+}
+
+// ---------- 结果 ----------
+function showResult(r) {
+  $('result').hidden = false;
+  const corrBad = r.corr < 0.8, ampBad = r.amp < 0.6 || r.amp > 1.6, ratioBad = r.ratio > 1.15 || r.ratio < 0.8;
+  $('mCorr').textContent = r.corr.toFixed(2); $('mCorr').className = 'v ' + (corrBad ? 'bad' : 'good');
+  $('dCorr').textContent = corrBad ? (r.corr < 0.5 ? '升降位置明显不对，再听几遍参考' : '方向大致对了，细节还差') : '升降位置对上了';
+  $('mAmp').textContent = Math.round(r.amp * 100) + '%'; $('mAmp').className = 'v ' + (ampBad ? 'bad' : 'good');
+  $('dAmp').textContent = `播音员起伏 ${r.ref_span} 半音，你 ${r.my_span} 半音` + (r.amp < 0.6 ? '，起伏太小' : r.amp > 1.6 ? '，过头了' : '');
+  $('mRatio').textContent = r.ratio.toFixed(2) + '×'; $('mRatio').className = 'v ' + (ratioBad ? 'bad' : 'good');
+  $('dRatio').textContent = r.ratio > 1.35 ? `慢了 ${Math.round((r.ratio - 1) * 100)}%` : r.ratio > 1.15 ? '略慢' : r.ratio < 0.6 ? '太短：只读了一部分？' : r.ratio < 0.75 ? '读得太快' : '速度合适';
+  const v = $('verdict'); v.className = 'verdict' + (r.ok ? ' ok' : '');
+  v.textContent = r.ok ? '这一遍可以了。换下一句，或者把速度再贴近一点。'
+    : ampBad && r.amp < 0.6 ? '方向有了，幅度不够——高的地方再高、低的地方再低，夸张一点。'
+    : corrBad ? '先把形状对上：重听参考，注意哪里升、哪里降。'
+    : r.ratio < 0.6 ? '录音比参考短太多——是不是中间停顿后被切开了，或者只读了一部分？完整读一遍再看。'
+    : '形状和幅度都行了，调一下速度。';
+  $('takesLine').textContent = r.takes.length > 1
+    ? `这次读了 ${r.takes.length} 遍：` + r.takes.slice(0, 8).map((t, i) => `第${i+1}遍 ${t.corr.toFixed(2)}`).join('，') + (r.takes.length > 8 ? '…' : '') + `。图用的是最好的一遍（${r.best_take.start}–${r.best_take.end}s）。`
+    : '';
+  $('chartImg').src = '/media?path=' + encodeURIComponent(r.png) + '&t=' + Date.now();
+  if (r.t && r.ref_curve) { $('pitchCanvas').parentElement.hidden = false; drawPitch(r); }
+  else { $('pitchCanvas').parentElement.hidden = true; document.querySelector('details.more').open = true; }
+  renderMora(r);
+  $('myAudio').src = '/media?path=' + encodeURIComponent(r.recording);
+}
+function renderMora(r) {
+  const wrap = $('moraWrap'), row = $('moraRow');
+  if (!r.mora || !r.mora.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  row.innerHTML = r.mora.map(m => {
+    const pd = m.pitch_diff, dr = m.dur_ratio;
+    const cls = ['mora'];
+    if (pd != null && pd >= 2) cls.push('hi'); else if (pd != null && pd <= -2) cls.push('lo');
+    if (m.score < 0.3) cls.push('unsure');
+    const pTxt = pd == null ? '—' : (pd > 0 ? '+' : '') + pd.toFixed(1);
+    const dTxt = dr == null ? '' : Math.round(dr * 100) + '%';
+    const dCls = dr == null ? '' : dr < 0.6 ? 'short' : dr > 1.6 ? 'long' : '';
+    return `<div class="${cls.join(' ')}" title="播音员 ${m.ref_pitch ?? '—'}，你 ${m.my_pitch ?? '—'}（半音）；长度 播音员 ${m.ref_dur}s，你 ${m.my_dur}s"><div class="k">${m.mora}</div><div class="p">${pTxt}</div><div class="d ${dCls}">${dTxt}</div></div>`;
+  }).join('');
+  const problems = r.mora.filter(m => m.score >= 0.3 && ((m.pitch_diff != null && Math.abs(m.pitch_diff) >= 2) || (m.dur_ratio != null && (m.dur_ratio < 0.6 || m.dur_ratio > 1.6))));
+  if (problems.length && problems.length <= 4) {
+    const v = $('verdict');
+    v.textContent += ' 具体是：' + problems.map(m => {
+      const parts = [];
+      if (m.pitch_diff != null && Math.abs(m.pitch_diff) >= 2) parts.push(m.pitch_diff > 0 ? `高了 ${m.pitch_diff.toFixed(0)} 个半音` : `低了 ${(-m.pitch_diff).toFixed(0)} 个半音`);
+      if (m.dur_ratio != null && m.dur_ratio < 0.6) parts.push('太短'); else if (m.dur_ratio != null && m.dur_ratio > 1.6) parts.push('拖长了');
+      return `「${m.mora}」${parts.join('、')}`;
+    }).join('；') + '。';
+  }
+}
+let lastResult = null;
+function drawPitch(r) {
+  lastResult = r;
+  const cv = $('pitchCanvas'), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, Hh = cv.clientHeight;
+  cv.width = W * dpr; cv.height = Hh * dpr;
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, Hh);
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim();
+  const pad = { l: 38, r: 12, t: 12, b: 26 };
+  const t = r.t, a = r.ref_curve, b = r.my_curve;
+  const vals = [...a, ...b].filter(v => v != null);
+  let lo = Math.min(-3, ...vals), hi = Math.max(3, ...vals); lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
+  const x = i => pad.l + (t[i] / t[t.length - 1]) * (W - pad.l - pad.r);
+  const y = v => pad.t + (hi - v) / (hi - lo) * (Hh - pad.t - pad.b);
+  // grid
+  ctx.font = '11px system-ui, sans-serif'; ctx.fillStyle = col('--muted'); ctx.textAlign = 'right';
+  ctx.strokeStyle = col('--line'); ctx.lineWidth = 1;
+  const step = (hi - lo) > 16 ? 4 : 2;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    ctx.beginPath(); ctx.moveTo(pad.l, y(v)); ctx.lineTo(W - pad.r, y(v)); ctx.stroke();
+    ctx.fillText(v > 0 ? '+' + v : v, pad.l - 6, y(v) + 4);
+  }
+  ctx.strokeStyle = col('--muted'); ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(pad.l, y(0)); ctx.lineTo(W - pad.r, y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign = 'center';
+  const total = t[t.length - 1], tstep = total > 3 ? 0.5 : total > 1.2 ? 0.25 : 0.1;
+  for (let s = 0; s <= total + 1e-6; s += tstep) {
+    const px = pad.l + (s / total) * (W - pad.l - pad.r);
+    ctx.fillText(s.toFixed(tstep < 0.25 ? 1 : 2).replace(/\.?0+$/, '') + 's', px, Hh - 8);
+  }
+  // curves
+  const line = (arr, color, w) => {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    let pen = false; ctx.beginPath();
+    arr.forEach((v, i) => { if (v == null) { pen = false; return; } if (!pen) { ctx.moveTo(x(i), y(v)); pen = true; } else ctx.lineTo(x(i), y(v)); });
+    ctx.stroke();
+  };
+  line(a, col('--ref'), 3); line(b, col('--mine'), 2.5);
+  // hover
+  const tip = $('pitchTip');
+  cv.onmousemove = ev => {
+    const rect = cv.getBoundingClientRect(); const px = ev.clientX - rect.left;
+    const i = Math.round((px - pad.l) / (W - pad.l - pad.r) * (t.length - 1));
+    if (i < 0 || i >= t.length) { tip.style.display = 'none'; return; }
+    const fa = a[i] == null ? '—' : (a[i] > 0 ? '+' : '') + a[i].toFixed(1), fb = b[i] == null ? '—' : (b[i] > 0 ? '+' : '') + b[i].toFixed(1);
+    tip.textContent = `${t[i].toFixed(2)}s   播音员 ${fa}   你 ${fb}`;
+    tip.style.display = 'block'; tip.style.left = (px + 10) + 'px'; tip.style.top = (pad.t + 24) + 'px';
+  };
+  cv.onmouseleave = () => tip.style.display = 'none';
+}
+window.addEventListener('resize', () => { if (lastResult && !$('result').hidden) drawPitch(lastResult); });
+
+async function loadHistory(path) {
+  try { const j = await api('/api/history?ref=' + encodeURIComponent(path)); state.history[path] = j.history; }
+  catch (e) { state.history[path] = state.history[path] || []; }
+  if (state.ref && state.ref.path === path) renderHistory();
+}
+function renderHistory() {
+  const h = (state.ref && state.history[state.ref.path]) || [];
+  $('history').hidden = !h.length;
+  if (!h.length) return;
+  const score = x => x.corr * (x.amp >= 0.6 && x.amp <= 1.6 ? 1 : 0.5) * (x.ratio >= 0.75 && x.ratio <= 1.35 ? 1 : 0.7);
+  const best = Math.max(...h.map(score));
+  $('histBody').innerHTML = h.map((x, i) => {
+    const when = (x.at || '').replace(/^\d{4}-/, '');
+    return `<tr data-i="${i}" class="${score(x) === best ? 'best' : ''}"><td>${i+1}</td><td>${when}</td><td>${x.corr.toFixed(2)}</td><td>${Math.round(x.amp*100)}%</td><td>${x.ratio.toFixed(2)}×</td><td>${x.ok ? '✓' : ''}</td></tr>`;
+  }).join('');
+  $('histBody').querySelectorAll('tr').forEach(tr => tr.onclick = () => showResult(h[+tr.dataset.i]));
+}
+
+loadAll().catch(e => alert('连不上本地服务: ' + e.message));
+</script>
+</body>
+</html>
