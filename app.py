@@ -48,7 +48,7 @@ import compare_pitch  # noqa: E402
 import align_mora  # noqa: E402
 
 PORT = 8765
-for d in ("news", "segments", "recordings", "results"):
+for d in ("news", "segments", "recordings", "results", "refs"):
     os.makedirs(d, exist_ok=True)
 
 MIME = {".html": "text/html; charset=utf-8", ".mp3": "audio/mpeg", ".wav": "audio/wav",
@@ -88,6 +88,162 @@ def article_alignment(mp3: str):
     return None
 
 
+def target_levels(ref: str) -> dict:
+    """参考句的目标调型（高/低两档），给「目标台阶」用。
+
+    取整篇对齐结果里落在这一句的拍，按播音员实测音高逐拍二值化：音高在整句中位数
+    以上记为高拍。音高已相对各自中位数归一化，所以 0 就是分界线。
+    需要这篇文章先做过按假名对齐；没有就返回空，前端隐藏台阶。
+    """
+    empty = {"kana": [], "levels": []}
+    meta = ref + ".json"
+    if not os.path.exists(meta):
+        return empty
+    info = json.load(open(meta, encoding="utf-8"))
+    if not info.get("src") or info.get("end") is None:
+        return empty
+    al = article_alignment(safe(info["src"]))
+    if not al:
+        return empty
+    mora = align_mora.mora_in_range(al, info["start"], info["end"])
+    if not mora:
+        return empty
+    import numpy as np
+    (rt, rp, _rdb, (ra, _rb)), _gap = compare_pitch.reference_contour(ref)
+    kana, levels = [], []
+    for m in mora:
+        a, b = m["start"] - ra, m["end"] - ra      # 对齐结果相对句首，曲线相对检测到的语音起点
+        sel = (rt >= a) & (rt <= b) & ~np.isnan(rp)
+        kana.append(m["mora"])
+        levels.append(int(np.mean(rp[sel]) >= 0) if sel.any() else None)
+    return {"kana": kana, "levels": levels}
+
+
+def analyze_pron(wav: str, kana: str) -> dict:
+    """把一段录音对到给定假名上，返回每拍的确信度和高低。模式① 和模式② 共用。
+
+    确信度直接用对齐模型的 posterior（align_mora 的 score），不另造分数。
+    高低＝该拍平均音高相对整段中位数在上还是在下，和模式③ 的目标台阶同一套口径。
+    """
+    import numpy as np
+    res = align_mora.align(wav, kana)              # [{mora,start,end,score}]
+    t, f0, _db = compare_pitch.analyze(compare_pitch.load(wav))
+    med = np.nanmedian(f0)
+    semis = 12 * np.log2(f0 / med) if med and not np.isnan(med) else np.full_like(f0, np.nan)
+    out = []
+    for m in res:
+        sel = (t >= m["start"]) & (t <= m["end"]) & ~np.isnan(semis)
+        v = float(np.mean(semis[sel])) if sel.any() else None
+        out.append({"mora": m["mora"], "score": m["score"],
+                    "pitch": None if v is None else round(v, 2),
+                    "level": None if v is None else int(v >= 0)})
+    scores = [m["score"] for m in res] or [0.0]
+    return {"mora": out,
+            "levels": [m["level"] for m in out],
+            "confidence": round(float(sum(scores) / len(scores)), 3)}
+
+
+def save_upload(ctype: str, raw: bytes) -> str:
+    """把上传的录音落盘并转成 16k 单声道 wav，返回 wav 路径。"""
+    ext = ".webm" if "webm" in ctype else ".wav" if "wav" in ctype else ".m4a" if "mp4" in ctype else ".bin"
+    stamp = time.strftime("%m%d_%H%M%S") + f"_{int(time.time() * 1000) % 1000:03d}"
+    src = os.path.join("recordings", f"{stamp}_raw{ext}")
+    with open(src, "wb") as f:
+        f.write(raw)
+    wav = os.path.join("recordings", f"{stamp}.wav")
+    ffmpeg("-i", src, "-ac", "1", "-ar", "16000", wav)
+    os.remove(src)
+    return wav
+
+
+SAY_LOCK = threading.Lock()
+MIN_WAV = 1000          # 16k 单声道 16bit：小于这个长度说明 say 没真的出声（空文件只有 78 字节的头）
+
+
+def say_ref(text: str, voice: str = "Kyoko", rate: int = 170, tempo: float = 1.0, pad: float = 0.0) -> str:
+    """模式① / ② 的参考音：系统朗读，按内容缓存，不往 segments/ 里堆文件。
+
+    单个假名合成出来只有 0.3 秒左右（rate 调再慢也几乎不变），播放时开头还容易被吃掉，
+    所以播放用的版本会做时间拉伸（atempo，变速不变调）并前后补静音。
+    基线（baseline_conf）仍用 tempo=1 / pad=0 的原始音，免得改变模型看到的东西。
+
+    整个合成过程加锁并写临时文件再原子改名：/api/say 和 /api/baseline 会对同一个音
+    算出同一个路径，并发时两个 say 写同一个 .aiff，先转完的那个删掉它，另一个就炸了；
+    更糟的是会把零采样的空 wav 留在缓存里，之后每次命中缓存都失败且不会自愈。
+    """
+    import hashlib
+    os.makedirs("refs", exist_ok=True)
+    tempo = min(2.0, max(0.5, float(tempo)))        # atempo 的有效下限就是 0.5
+    pad = min(1.0, max(0.0, float(pad)))
+    key = hashlib.sha1(f"{text}|{voice}|{rate}|{tempo}|{pad}".encode("utf-8")).hexdigest()[:16]
+    out = os.path.join("refs", key + ".wav")
+    if os.path.exists(out):
+        if os.path.getsize(out) >= MIN_WAV:
+            return out
+        os.remove(out)                      # 之前版本留下的空文件，删掉重来
+    if not shutil.which("say"):
+        raise RuntimeError("系统没有 say 命令（只有 macOS 有）")
+    with SAY_LOCK:
+        if os.path.exists(out) and os.path.getsize(out) >= MIN_WAV:
+            return out                      # 等锁期间别人已经做好了
+        tmp = f"{out}.{os.getpid()}.{threading.get_ident()}"
+        aiff, wav = tmp + ".aiff", tmp + ".wav"
+        try:
+            subprocess.run(["say", "-v", voice, "-r", str(rate), "-o", aiff, text],
+                           check=True, capture_output=True)
+            filters = []
+            if tempo != 1.0:
+                filters.append(f"atempo={tempo}")
+            if pad:
+                filters.append(f"adelay={int(pad * 1000)}")
+                filters.append(f"apad=pad_dur={pad}")
+            if filters:
+                ffmpeg("-i", aiff, "-ac", "1", "-ar", "16000", "-filter:a", ",".join(filters), wav)
+            else:
+                ffmpeg("-i", aiff, wav)
+            if os.path.getsize(wav) < MIN_WAV:
+                raise RuntimeError(f"系统朗读没有发出声音：{text!r}")
+            os.replace(wav, out)            # 原子改名，缓存里不会出现半成品
+        finally:
+            for f in (aiff, wav):
+                if os.path.exists(f):
+                    os.remove(f)
+    return out
+
+
+
+BASELINE_FILE = "baseline.json"
+BASELINE_LOCK = threading.Lock()
+
+
+def baseline_conf(kana: str) -> float:
+    """这个音「读得完全正确」时的确信度是多少。
+
+    用系统朗读合成同一个音，量它自己的对齐确信度。单拍 posterior 本来就低
+    （实测 104 个音中位只有 0.47），所以固定的 60% 目标线没有意义；
+    只有拿用户的分数跟同一个音的参考音比，才说得出「像不像」。结果按音缓存。
+    """
+    def load():
+        if not os.path.exists(BASELINE_FILE):
+            return {}
+        try:
+            return json.load(open(BASELINE_FILE, encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+    cached = load().get(kana)
+    if cached is not None:
+        return cached
+    import numpy as np
+    res = align_mora.align(say_ref(kana), kana)
+    v = round(float(np.mean([m["score"] for m in res])), 3)
+    with BASELINE_LOCK:                     # 读-改-写，并发时不能丢别人刚写的音
+        cache = load()
+        cache[kana] = v
+        with open(BASELINE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    return v
+
+
 ALIGN_STATUS = {"state": "idle", "msg": "", "started": 0, "mp3": None, "result": None}
 
 
@@ -118,6 +274,71 @@ def build_article_alignment(txt: str, mp3: str):
         traceback.print_exc()
         ALIGN_STATUS.update(state="error", msg=str(e)[:300])
 
+
+
+
+# 五十音図：行布局写死，罗马字从 align_mora._ROMA 取，保证表里每个音
+# 都是对齐模型认识的（否则它会退回成 a，确信度就没意义了）。
+GOJUON_ROWS = {
+    "清音": ["あいうえお", "かきくけこ", "さしすせそ", "たちつてと", "なにぬねの",
+             "はひふへほ", "まみむめも", "や ゆ よ", "らりるれろ", "わ を ", "ん"],
+    "濁音・半濁音": ["がぎぐげご", "ざじずぜぞ", "だぢづでど", "ばびぶべぼ", "ぱぴぷぺぽ"],
+    "拗音": ["きゃきゅきょ", "しゃしゅしょ", "ちゃちゅちょ", "にゃにゅにょ", "ひゃひゅひょ",
+             "みゃみゅみょ", "りゃりゅりょ", "ぎゃぎゅぎょ", "じゃじゅじょ", "びゃびゅびょ", "ぴゃぴゅぴょ"],
+}
+
+
+def gojuon():
+    """[{section, rows:[[{kana, roman} | None, ...]]}]，None 是表里的空位（や行的 い/え 等）。"""
+    out = []
+    for sec, rows in GOJUON_ROWS.items():
+        grid = []
+        for r in rows:
+            cells = []
+            for chunk in (align_mora.kana_to_mora(r.replace(" ", "")) if " " not in r
+                          else [c if c != " " else None for c in r]):
+                cells.append(None if chunk is None else {"kana": chunk, "roman": align_mora._ROMA.get(chunk, "")})
+            grid.append(cells)
+        out.append({"section": sec, "rows": grid})
+    return out
+
+
+# ---------------------------------------------------------------- 内置词表 / 难点音
+# 最小对：levels 里 1 = 高拍。声调随程序打包，不联网查辞典。
+WORDS = [
+    {"a": {"kanji": "橋", "kana": ["は", "し"], "levels": [0, 1], "gloss": "桥"},
+     "b": {"kanji": "箸", "kana": ["は", "し"], "levels": [1, 0], "gloss": "筷子"}},
+    {"a": {"kanji": "雨", "kana": ["あ", "め"], "levels": [1, 0], "gloss": "雨"},
+     "b": {"kanji": "飴", "kana": ["あ", "め"], "levels": [0, 1], "gloss": "糖"}},
+    {"a": {"kanji": "神", "kana": ["か", "み"], "levels": [1, 0], "gloss": "神"},
+     "b": {"kanji": "紙", "kana": ["か", "み"], "levels": [0, 1], "gloss": "纸"}},
+    {"a": {"kanji": "酒", "kana": ["さ", "け"], "levels": [0, 1], "gloss": "酒"},
+     "b": {"kanji": "鮭", "kana": ["さ", "け"], "levels": [1, 0], "gloss": "鲑鱼"}},
+    {"a": {"kanji": "今", "kana": ["い", "ま"], "levels": [1, 0], "gloss": "现在"},
+     "b": {"kanji": "居間", "kana": ["い", "ま"], "levels": [0, 1], "gloss": "起居室"}},
+]
+
+# 难点音：按中国语话者的绊倒顺序分组，不是五十音顺。
+# 注意：发音要点和例词是交接文档作者写的占位内容，上线前需要母语者过一遍（交接文档 §8 第 1 条）。
+SOUNDS = [
+    {"key": "tsu", "name": "つ・ず・す", "sounds": [
+        {"kana": "つ", "roman": "tsu", "ex": "机（つくえ）", "hint": "舌尖先抵住上齿龈，憋一下再放开，是 t+s 连成一个音，不是汉语的「次」。"},
+        {"kana": "ず", "roman": "zu", "ex": "水（みず）", "hint": "つ 的浊音。声带从一开始就振动，别读成「兹」。"},
+        {"kana": "す", "roman": "su", "ex": "寿司（すし）", "hint": "只有 s，没有前面的 t。嘴角别咧开。"}]},
+    {"key": "long", "name": "長音", "sounds": [
+        {"kana": "おー", "roman": "oo", "ex": "お母（かあ）さん", "hint": "长音要占满两拍。心里数两下再换下一个音。"},
+        {"kana": "えー", "roman": "ee", "ex": "先生（せんせい）", "hint": "长度不够会被听成另一个词，这是中国人最常丢的一拍。"}]},
+    {"key": "soku", "name": "促音", "sounds": [
+        {"kana": "っ", "roman": "(stop)", "ex": "切手（きって）", "hint": "促音是一拍的「停」，不是把后面的辅音读重。停住一拍再出声。"}]},
+    {"key": "ra", "name": "ら行", "sounds": [
+        {"kana": "ら", "roman": "ra", "ex": "来年（らいねん）", "hint": "舌尖轻弹上齿龈一下就走，既不是汉语的 l 也不是卷舌的 r。"},
+        {"kana": "り", "roman": "ri", "ex": "料理（りょうり）", "hint": "同样是弹舌，别把舌头卷起来。"}]},
+    {"key": "n", "name": "ん", "sounds": [
+        {"kana": "ん", "roman": "n", "ex": "日本（にほん）", "hint": "ん 自己占一整拍。后面接什么音，它的口型就跟着变，但长度不变。"}]},
+    {"key": "voice", "name": "清濁", "sounds": [
+        {"kana": "か / が", "roman": "ka / ga", "ex": "外国（がいこく）", "hint": "浊音从出声那一刻声带就振动。清音不送气，别读成汉语的「卡」。"},
+        {"kana": "た / だ", "roman": "ta / da", "ex": "大学（だいがく）", "hint": "同上。中国人常把浊音读成不送气清音，日本人听得出来。"}]},
+]
 
 HISTORY = "history.jsonl"
 
@@ -255,10 +476,26 @@ class H(BaseHTTPRequestHandler):
                                        "tts": shutil.which("say") is not None, "frozen": FROZEN, "root": ROOT,
                                        "align": align_mora.available(), "summary": history_summary()})
             if u.path == "/api/history":
-                return self.send_json({"history": history_read(q["ref"][0])})
+                return self.send_json({"history": history_read(q["ref"][0] if "ref" in q else None)})
             if u.path == "/api/article":
                 with open(safe(q["path"][0]), encoding="utf-8") as f:
                     return self.send_json({"text": f.read()})
+            if u.path == "/api/wordlist":
+                return self.send_json({"words": WORDS})
+            if u.path == "/api/sounds":
+                return self.send_json({"groups": SOUNDS, "gojuon": gojuon(), "align": align_mora.available()})
+            if u.path == "/api/baseline":
+                if not align_mora.available():
+                    return self.send_json({"confidence": None})
+                return self.send_json({"confidence": baseline_conf(q["kana"][0])})
+            if u.path == "/api/records":
+                return self.send_json({"history": history_read(), "summary": history_summary()})
+            if u.path == "/api/say":
+                return self.send_json({"path": say_ref(
+                    q["text"][0], q.get("voice", ["Kyoko"])[0], int(q.get("rate", ["170"])[0]),
+                    float(q.get("tempo", ["1"])[0]), float(q.get("pad", ["0"])[0]))})
+            if u.path == "/api/target":
+                return self.send_json(target_levels(safe(q["ref"][0])))
             if u.path == "/api/align_status":
                 st = dict(ALIGN_STATUS)
                 st["elapsed"] = round(time.time() - st["started"]) if st["state"] == "running" else 0
@@ -364,7 +601,36 @@ class H(BaseHTTPRequestHandler):
                 r["ref"] = q["ref"][0]
                 r["ts"] = time.time()
                 r["at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-                history_append({k: v for k, v in r.items() if k not in ("ref_curve", "my_curve", "t")})
+                history_append({**{k: v for k, v in r.items() if k not in ("ref_curve", "my_curve", "t")},
+                                "type": "sentence"})
+                return self.send_json(r)
+
+            if u.path == "/api/pron":
+                if not align_mora.available():
+                    raise RuntimeError("没装 torch/torchaudio，模式① / ② 需要它来把录音对到假名上")
+                n = int(self.headers.get("Content-Length", 0))
+                wav = save_upload(self.headers.get("Content-Type", ""), self.rfile.read(n))
+                kind = q.get("type", ["sound"])[0]
+                kana = q["kana"][0]
+                r = analyze_pron(wav, kana)
+                r["recording"] = wav
+                r["kana_text"] = kana
+                r["type"] = kind
+                r["ts"] = time.time()
+                r["at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                if kind == "sound":
+                    r["group"] = q.get("group", [""])[0]
+                    r["ok"] = bool(r["confidence"] >= 0.60)
+                else:
+                    want = [int(x) for x in q.get("levels", [""])[0].split(",") if x != ""]
+                    got = r["levels"]
+                    r["want"] = want
+                    r["word"] = q.get("word", [""])[0]
+                    r["ok"] = bool(len(want) == len(got) and all(
+                        g is not None and g == w for g, w in zip(got, want)))
+                    r["wrong"] = [i for i, (g, w) in enumerate(zip(got, want)) if g is None or g != w] \
+                        if len(want) == len(got) else []
+                history_append({k: v for k, v in r.items() if k != "mora"})
                 return self.send_json(r)
 
             if u.path == "/api/quit":

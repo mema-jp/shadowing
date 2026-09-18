@@ -7,24 +7,24 @@
 <style>
 /* ===================== design tokens ===================== */
 :root{
-  --bg-page:#0B0E13; --bg-app:#0F131A; --bg-bar:#12171F; --bg-feed:#0D1117;
-  --bg-card:#141A23; --bg-card2:#1B2330; --bg-item:#151B24;
-  --line-strong:#232B37; --line-weak:#1D242F; --bd-btn:#2A3340; --bd-weak:#222A36;
-  --ink:#E8ECF2; --ink2:#B7C2D0; --ink3:#8A97A8; --ink4:#6E7C90; --ink5:#5C6B7E; --ink6:#4E5C6E;
-  --ok:#3DDC97; --ok-ink:#06130D; --warn:#FFB454; --bad:#FF7A6B; --rec:#FF5A50;
-  --ref:#6AA9FF; --mine:#FF7A6B; --sel:#2AA5FF;
-  --track:#1B2330; --played:#3E4C5E; --bar-bad:#4E6076;
-  --dot-off:#333E4C; --grid0:#3A4554; --grid:#1E2632;
+  --bg-page:#f2f1ee; --bg-app:#ffffff; --bg-bar:#f7f6f3; --bg-feed:#faf9f6;
+  --bg-card:#ffffff; --bg-card2:#ecebe6; --bg-item:#ffffff;
+  --line-strong:rgba(0,0,0,.13); --line-weak:rgba(0,0,0,.10); --bd-btn:rgba(0,0,0,.20); --bd-weak:rgba(0,0,0,.11);
+  --ink:#1a1a1a; --ink2:rgba(0,0,0,.72); --ink3:rgba(0,0,0,.58); --ink4:rgba(0,0,0,.53); --ink5:rgba(0,0,0,.50); --ink6:rgba(0,0,0,.45);
+  --ok:#1f9d5b; --ok-btn:#167a47; --ok-ink:#ffffff; --warn:#b8730a; --bad:#d64a3a; --rec:#d93b2b;
+  --ref:#2a78d6; --mine:#d64a3a; --sel:#2a78d6;
+  --track:#ecebe6; --played:#b5b1a8; --bar-bad:#9a958c; --railprog:#dedbd4;
+  --dot-off:#c9c5bd; --grid0:rgba(0,0,0,.30); --grid:rgba(0,0,0,.11);
   --mono:'Roboto Mono',ui-monospace,Menlo,monospace;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* 下面有不少 display:flex/grid，会盖过 hidden 的默认样式 */
 html,body{margin:0;height:100%;overflow:hidden}   /* 整页不出现滚动条，各区域各自滚 */
 /* 统一滚动条样式：深底上默认滚动条太扎眼 */
-.scroll{scrollbar-width:thin;scrollbar-color:#2A3340 transparent}
+.scroll{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.22) transparent}
 .scroll::-webkit-scrollbar{width:8px;height:8px}
-.scroll::-webkit-scrollbar-thumb{background:#2A3340;border-radius:4px}
-.scroll::-webkit-scrollbar-thumb:hover{background:#3A4554}
+.scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.22);border-radius:4px}
+.scroll::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.34)}
 .scroll::-webkit-scrollbar-track{background:transparent}
 body{
   background:var(--bg-page); color:var(--ink);
@@ -38,20 +38,36 @@ button{cursor:pointer}
 /* ===================== shell ===================== */
 .app{
   height:100vh; background:var(--bg-app);
-  border:1px solid var(--line-strong); border-radius:18px; overflow:hidden;
+  border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;
+  box-shadow:0 18px 44px -24px rgba(0,0,0,.22);
   display:flex; flex-direction:column; margin:0 auto; max-width:1600px;
 }
 .topbar{
   display:flex; justify-content:space-between; align-items:center; gap:20px;
-  padding:16px 22px; border-bottom:1px solid var(--line-weak); background:var(--bg-bar); flex:none;
+  padding:13px 20px; border-bottom:1px solid var(--line-weak); background:var(--bg-bar); flex:none;
 }
+.logo{width:24px;height:24px;border-radius:7px}
+.app-title{font-size:15px;font-weight:700}
+.crumb{font-size:12px;color:var(--ink4)}
+.local{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ok)}
+.local i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+
+/* 模式轨（56px，固定不折叠） */
+.moderail{background:var(--bg-bar);border-right:1px solid rgba(0,0,0,.10);padding:12px 7px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;min-height:0;overflow:hidden}
+.moderail button{width:100%;padding:9px 0 7px;border-radius:8px;font-size:14px;font-weight:700;
+  background:transparent;border:1px solid var(--bd-weak);color:var(--ink3);
+  display:flex;flex-direction:column;align-items:center;gap:6px}
+.moderail button.on{background:rgba(42,120,214,.09);border-color:var(--sel);color:var(--sel)}
+.moderail .prog{width:26px;height:3px;border-radius:2px;background:var(--railprog)}
+.moderail .hintk{margin-top:auto;font-size:9.5px;color:var(--ink6);text-align:center;line-height:1.5}
 .brand{display:flex;align-items:center;gap:14px}
-.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(140deg,#3DDC97,#2AA5FF);flex:none}
+.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(140deg,#1f9d5b,#2a78d6);flex:none}
 .app-title{font-size:16px;font-weight:700}
 .steps{display:flex;align-items:center;gap:8px;margin-left:10px;font-size:12px;color:var(--ink5)}
 .steps .sep{color:var(--ink5)}
 .step{padding:4px 10px;border-radius:999px;background:var(--bg-card2);color:var(--ink4)}
-.step.on{background:rgba(61,220,151,.14);color:var(--ok);font-weight:700}
+.step.on{background:rgba(31,157,91,.10);color:var(--ok);font-weight:700}
 .topright{display:flex;align-items:center;gap:20px;font-size:13px;color:var(--ink3)}
 .topright b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .vline{width:1px;height:14px;background:var(--bd-btn)}
@@ -60,9 +76,15 @@ button{cursor:pointer}
 .langsw button.on{background:var(--bg-card2);color:var(--ink)}
 .ghost{padding:4px 10px;background:var(--bg-card2);border:1px solid var(--bd-btn);border-radius:7px;color:var(--ink3);font-size:12px}
 
-.grid{display:grid;grid-template-columns:300px minmax(0,1fr) minmax(0,1.15fr);flex:1;min-height:0;overflow:hidden;
+.grid{display:grid;grid-template-columns:56px 300px minmax(0,1fr);flex:1;min-height:0;overflow:hidden;
   transition:grid-template-columns .18s ease}
-.grid.mini{grid-template-columns:58px minmax(0,1fr) minmax(0,1.15fr)}
+.grid.mini{grid-template-columns:56px 58px minmax(0,1fr)}
+.modemain{min-height:0;overflow:hidden;display:flex;flex-direction:column}
+/* 模式③ 在 main 内部再分练习/反馈两栏 */
+.mode3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);flex:1;min-height:0;overflow:hidden}
+.modepanel{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.todo{margin:auto;text-align:center;color:var(--ink4);font-size:13px;line-height:2;padding:40px}
+.todo b{display:block;font-size:15px;color:var(--ink);margin-bottom:6px}
 .grid.mini .rail{display:none}
 .grid.mini .rail-mini{display:flex}
 
@@ -74,7 +96,7 @@ button{cursor:pointer}
 .rail-mini .nums{display:flex;flex-direction:column;gap:5px;width:100%;min-height:0;overflow-y:auto}
 .rail-mini .nums button{width:100%;height:30px;border-radius:8px;display:grid;place-items:center;
   font-family:var(--mono);font-size:12px;background:var(--bg-item);border:1px solid var(--bd-weak);color:var(--ink5);flex:none}
-.rail-mini .nums button.cur{background:rgba(61,220,151,.14);border-color:var(--ok);color:var(--ok);font-weight:700}
+.rail-mini .nums button.cur{background:rgba(31,157,91,.10);border-color:var(--ok);color:var(--ok);font-weight:700}
 .rail-mini .add{margin-top:auto;width:100%;height:30px;border-radius:8px;border:1px dashed var(--bd-btn);color:var(--ink5);background:transparent;flex:none}
 .railbtn{padding:4px 8px;background:transparent;border:1px solid var(--bd-btn);border-radius:7px;color:var(--ink4);font-size:12px}
 
@@ -91,10 +113,11 @@ button{cursor:pointer}
 .news-item{padding:9px 11px;border-radius:9px;background:var(--bg-item);border:1px solid var(--bd-weak);cursor:pointer}
 .news-item .date{display:block;font-family:var(--mono);font-size:11px;color:var(--ink4)}
 .news-item .t{font-size:13px;line-height:1.5;color:var(--ink3)}
-.news-item.active{background:rgba(42,165,255,.1);border-color:rgba(42,165,255,.4)}
+.news-item.active{background:rgba(42,120,214,.09);border-color:rgba(42,120,214,.40)}
 .news-item.active .t{color:var(--ink)}
 .noaudio{color:var(--ink6);font-size:11px}
 
+.railsec{display:flex;flex-direction:column;gap:18px;min-height:0;flex:1}
 .chunks-block{flex:1;display:flex;flex-direction:column;min-height:0}
 .chunk-list{display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;overflow-y:auto}
 .chunk{
@@ -102,7 +125,7 @@ button{cursor:pointer}
   padding:8px 10px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid transparent;
 }
 .chunk:hover{background:var(--bg-item)}
-.chunk.active{background:rgba(61,220,151,.12);border-color:rgba(61,220,151,.4)}
+.chunk.active{background:rgba(31,157,91,.10);border-color:rgba(31,157,91,.40)}
 .chunk .dot{width:6px;height:6px;border-radius:50%;background:var(--dot-off);flex:none}
 .chunk.active .dot{background:var(--ok)}
 .chunk .txt{flex:1;font-size:13px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -133,6 +156,117 @@ textarea{width:100%;resize:vertical}
 .log{font-family:var(--mono);font-size:11px;color:var(--ink4);white-space:pre-wrap;max-height:120px;overflow:auto}
 .empty{font-size:12px;color:var(--ink6);padding:6px 2px}
 
+
+
+
+/* ===== 模式① / ② / 記録 ===== */
+.pane{padding:22px 24px 26px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow-y:auto}
+.pane .hd1{display:flex;justify-content:space-between;align-items:baseline}
+.pane .hd1 .t{font-size:11.5px;letter-spacing:.12em;color:var(--ink5)}
+.pane .hd1 .n{font-family:var(--mono);font-size:11.5px;color:var(--ink5)}
+.card{background:var(--bg-card);border:1px solid var(--line-strong);border-radius:13px;padding:16px 18px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:14px}
+.bigkana{font-size:56px;font-weight:500;line-height:1.1}
+.roman{font-family:var(--mono);font-size:14px;color:var(--ink4);margin-top:4px}
+.hintbox{border-top:1px solid var(--line-weak);margin-top:12px;padding-top:12px;font-size:13.5px;line-height:1.85;color:var(--ink2)}
+.exrow{margin-top:10px;font-size:15px}
+.exrow em{font-style:normal;font-size:11.5px;color:var(--ink5);margin-right:8px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btnrow button{padding:8px 13px;border-radius:8px;font-size:13px;background:var(--bg-card2);border:1px solid var(--bd-btn);color:var(--ink)}
+.btnrow button.line{background:transparent}
+.conf{background:var(--bg-feed);border:1px solid var(--line-strong);border-radius:13px;padding:16px 18px}
+.conf .big{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1.1}
+.conf .big.na{color:rgba(0,0,0,.30)}
+.conf .track{position:relative;height:8px;background:var(--bg-card2);border-radius:4px;margin-top:10px}
+.conf .track i{display:block;height:100%;border-radius:4px}
+.conf .track .goal{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ok)}
+.conf .note{font-size:11.5px;color:var(--ink4);line-height:1.8;margin-top:10px}
+.wordk{font-size:36px;font-weight:500}
+.judge{border-radius:13px;padding:16px 18px;background:var(--bg-feed);border:1px solid var(--line-strong)}
+.judge.y{background:rgba(31,157,91,.07);border-color:rgba(31,157,91,.35)}
+.judge.n{background:rgba(214,74,58,.05);border-color:rgba(214,74,58,.35)}
+.judge .ico{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:13px}
+.judge.y .ico{background:var(--ok)}
+.judge.n .ico{background:var(--bad)}
+.judge .kick{font-size:11.5px;color:var(--ink4)}
+.judge .tx{font-size:14px;line-height:1.7;margin-top:6px}
+.judge .fix{border-top:1px solid var(--line-weak);margin-top:12px;padding-top:10px;font-size:11.5px;color:var(--ink4)}
+.recmini{display:flex;flex-direction:column;align-items:center;gap:12px}
+.recmini .rec-btn{width:78px;height:78px}
+.recmini .rec-btn .dot{width:28px;height:28px}
+.sparkw{width:100%;display:block}
+.recrow{display:grid;grid-template-columns:108px minmax(0,1fr) 52px 60px;gap:12px;align-items:center;padding:7px 8px;border-radius:8px;font-size:13px}
+.recrow:nth-child(even){background:var(--bg-feed)}
+.recrow .v{font-family:var(--mono);font-size:13.5px}
+.recrow .d{font-family:var(--mono);font-size:11.5px}
+.stabrow{display:grid;grid-template-columns:34px minmax(0,1fr) 78px 62px;gap:12px;align-items:center;padding:7px 8px;border-radius:8px}
+.stabrow:nth-child(even){background:var(--bg-feed)}
+.stabrow .tag{width:22px;height:20px;border-radius:5px;display:grid;place-items:center;font-size:11px}
+.stabrow .c{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stabrow .dt{font-family:var(--mono);font-size:11.5px;color:var(--ink4)}
+.stabrow .k{font-size:11.5px;color:var(--ok)}
+.railrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.railrow:hover{background:var(--bg-feed)}
+.railrow.on{background:rgba(42,120,214,.09);border-color:rgba(42,120,214,.40)}
+.railrow .dot{width:7px;height:7px;border-radius:50%;background:var(--dot-off);flex:none}
+.railrow .nm{flex:1;font-size:13px}
+.railrow .vv{font-family:var(--mono);font-size:11.5px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.chips button{padding:7px 12px;border-radius:8px;font-size:14px;background:#fff;border:1px solid var(--bd-btn);color:var(--ink)}
+.chips button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+/* 五十音図 */
+.gtab{display:flex;flex-direction:column;gap:12px;min-height:0;overflow-y:auto;flex:1}
+.gsec{font-size:11px;letter-spacing:.1em;color:var(--ink5);margin-bottom:5px}
+.grow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-bottom:4px}
+.grow.y3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.gcell{height:30px;border-radius:7px;display:grid;place-items:center;font-size:14px;
+  background:#fff;border:1px solid var(--bd-weak);color:var(--ink2);cursor:pointer}
+.gcell:hover{background:var(--bg-feed)}
+.gcell.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.gcell.blank{background:transparent;border-color:transparent;cursor:default}
+.segsw{display:flex;border:1px solid var(--bd-btn);border-radius:8px;overflow:hidden}
+.segsw button{flex:1;padding:5px 0;font-size:12px;background:transparent;border:0;color:var(--ink4)}
+.segsw button.on{background:var(--bg-card2);color:var(--ink)}
+
+/* ===== 只改一件事（§4.3） ===== */
+.onething{border:1px solid rgba(184,115,10,.32);background:rgba(184,115,10,.07);border-left:3px solid var(--warn);
+  border-radius:11px;padding:15px 17px}
+.onething .kick{font-size:11.5px;color:var(--warn);letter-spacing:.06em;margin-bottom:6px}
+.onething .tx{font-size:15px;line-height:1.7}
+.onething .takes{margin-top:8px;font-size:12px;color:var(--ink4)}
+.onething .acts{display:flex;gap:8px;margin-top:12px}
+.onething .acts button{padding:7px 12px;border-radius:8px;font-size:12.5px;background:transparent}
+.onething .acts .jump{border:1px solid var(--sel);color:var(--sel)}
+.onething .acts .later{border:1px solid var(--bd-btn);color:var(--ink4)}
+.onething.ok{border-color:rgba(31,157,91,.35);background:rgba(31,157,91,.07);border-left-color:var(--ok)}
+.onething.ok .kick{color:var(--ok)}
+/* 三项降级成小卡 */
+.metrics.small .metric{padding:11px 13px}
+.metrics.small .metric .k{font-size:10.5px}
+.metrics.small .metric .v{font-size:21px}
+details.other{border:1px solid var(--bd-btn);border-radius:11px;padding:0;margin-top:16px}
+details.other>summary{list-style:none;padding:11px 15px;font-size:13px;color:var(--ink3);cursor:pointer}
+details.other>summary::-webkit-details-marker{display:none}
+details.other>summary::after{content:' ▾'}
+details.other[open]>summary::after{content:' ▴'}
+details.other>*:not(summary){margin:0 15px 15px}
+.diag{font-size:12px;color:var(--ink3);line-height:1.8}
+
+/* ===== 目标台阶（§5.1，模式② / ③ 共用） ===== */
+.stair{border:1px solid rgba(42,120,214,.40);background:rgba(42,120,214,.09);border-radius:11px;padding:16px 18px;flex:none}
+.stair .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.stair .hd b{font-size:12px;color:var(--sel)}
+.stair .hd span{font-size:11.5px;color:var(--ink4)}
+.stair .lg{display:flex;gap:14px;font-size:11px;color:var(--ink4);margin-bottom:2px}
+.stair .lg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.stair svg{width:100%;height:58px;display:block}
+.stair .kn{display:grid;text-align:center;margin-top:-1px}
+.stair .kn span{white-space:nowrap;font-size:20px;line-height:1.4}
+.stair .kn span.dbl{font-size:15px;letter-spacing:-.04em}
+.stair .kn span.bad{color:var(--bad)}
+.stair.small .kn span{font-size:16px}
+.stair.small .kn span.dbl{font-size:13px}
+
 /* ===================== center: practice ===================== */
 /* 中栏本身不滚动（v4）：只有正文区和练习记录列表各自滚 */
 .practice{padding:22px 26px 24px;border-right:1px solid var(--line-weak);display:flex;flex-direction:column;gap:14px;overflow:hidden;min-height:0}
@@ -150,7 +284,7 @@ textarea{width:100%;resize:vertical}
 .bodycard.noruby .sent.cur rt{visibility:visible}   /* v6：高亮句的注音始终显示 */
 .sent{border-radius:4px;padding:1px 2px;cursor:pointer}
 .sent:hover{background:var(--bg-card2)}
-.sent.cur{background:rgba(61,220,151,.16);box-shadow:0 0 0 1px rgba(61,220,151,.35);color:var(--ink)}
+.sent.cur{background:rgba(31,157,91,.12);box-shadow:0 0 0 1px rgba(31,157,91,.35);color:var(--ink)}
 .sent.dead{cursor:default}
 .sent.dead:hover{background:transparent}
 
@@ -160,7 +294,7 @@ textarea{width:100%;resize:vertical}
 .player{padding:12px 14px;background:var(--bg-card);border:1px solid var(--line-strong);border-radius:12px;display:flex;gap:10px;align-items:center}
 .player button{padding:8px 14px;background:var(--bg-card2);border:1px solid var(--bd-btn);border-radius:8px;color:var(--ink);font-size:13px}
 .player button.tog{background:transparent;color:var(--ink3)}
-.player button.tog.on{background:var(--bg-card2);color:var(--ok);border-color:rgba(61,220,151,.4)}
+.player button.tog.on{background:var(--bg-card2);color:var(--ok);border-color:rgba(31,157,91,.40)}
 .progress{flex:1;height:4px;background:var(--track);border-radius:2px;overflow:hidden}
 .progress i{display:block;height:100%;width:0;background:var(--played)}
 
@@ -171,7 +305,7 @@ textarea{width:100%;resize:vertical}
 .rec-btn:disabled{opacity:.4;cursor:not-allowed}
 .rec-btn.on{animation:pulseRing 1.6s ease-in-out infinite}
 .rec-btn.on .dot{border-radius:6px;transform:scale(.75)}
-@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(255,90,80,.35)}50%{box-shadow:0 0 0 14px rgba(255,90,80,0)}}
+@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(217,59,43,.30)}50%{box-shadow:0 0 0 14px rgba(217,59,43,0)}}
 .rec-main{font-size:15px;text-align:center}
 .rec-sub{font-size:12px;color:var(--ink4);max-width:320px;text-align:center}
 .rec-sub .err{color:var(--bad)}
@@ -203,13 +337,13 @@ textarea{width:100%;resize:vertical}
 .fb-head .t{font-size:12px;letter-spacing:.12em;color:var(--ink5)}
 .fb-head .take{font-family:var(--mono);font-size:12px;color:var(--ink5)}
 .verdict{
-  background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.3);border-left:3px solid var(--warn);
+  background:rgba(184,115,10,.07);border:1px solid rgba(184,115,10,.32);border-left:3px solid var(--warn);
   border-radius:12px;padding:16px 18px;display:flex;gap:12px;
 }
 .verdict .ico{font-size:20px;color:var(--warn);line-height:1.4}
 .verdict .tx{font-size:14px;line-height:1.7}
 .verdict .takes{margin-top:8px;font-size:12px;color:var(--ink4)}
-.verdict.ok{background:rgba(61,220,151,.08);border-color:rgba(61,220,151,.3);border-left-color:var(--ok)}
+.verdict.ok{background:rgba(31,157,91,.07);border-color:rgba(31,157,91,.30);border-left-color:var(--ok)}
 .verdict.ok .ico{color:var(--ok)}
 
 .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -229,7 +363,7 @@ textarea{width:100%;resize:vertical}
 .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .pitch-wrap{position:relative;margin-top:10px}
 #pitchCanvas{width:100%;height:280px;display:block}
-.pitch-tip{position:absolute;display:none;pointer-events:none;background:#0B0E13;border:1px solid var(--bd-btn);border-radius:7px;padding:4px 8px;font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:nowrap}
+.pitch-tip{position:absolute;display:none;pointer-events:none;background:#fff;border:1px solid var(--bd-btn);border-radius:7px;padding:4px 8px;font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:nowrap}
 .chart-note{font-size:11px;color:var(--ink4);margin:6px 0 4px}
 .fb-actions{display:flex;gap:10px;align-items:flex-start}  /* 不能 stretch：详细图展开后会把旁边的按钮拉成竖条 */
 .fb-actions>*{padding:10px 14px;background:var(--bg-card);border:1px solid var(--bd-btn);border-radius:9px;color:var(--ink3);font-size:13px}
@@ -240,19 +374,19 @@ details.more>summary::after{content:' ▾'}
 details.more[open]>summary::after{content:' ▴'}
 details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid var(--line-strong)}
 
-.cleared{background:var(--bg-app);border:1px solid rgba(61,220,151,.35);border-radius:16px;padding:30px 32px 32px;display:flex;flex-direction:column;gap:16px}
+.cleared{background:var(--bg-app);border:1px solid rgba(31,157,91,.35);border-radius:16px;padding:30px 32px 32px;display:flex;flex-direction:column;gap:16px}
 .cleared .hd{display:flex;align-items:center;gap:12px}
-.cleared .badge{width:34px;height:34px;border-radius:50%;background:rgba(61,220,151,.16);border:1px solid var(--ok);display:grid;place-items:center;color:var(--ok);font-size:16px}
+.cleared .badge{width:34px;height:34px;border-radius:50%;background:rgba(31,157,91,.12);border:1px solid var(--ok);display:grid;place-items:center;color:var(--ok);font-size:16px}
 .cleared h3{margin:0;font-size:20px;font-weight:700;color:var(--ok)}
 .cleared p{margin:0;font-size:15px;line-height:1.75;color:var(--ink2)}
-.cleared .metrics .metric{border-color:rgba(61,220,151,.25)}
+.cleared .metrics .metric{border-color:rgba(31,157,91,.30)}
 .cleared .metrics .v{font-size:26px;color:var(--ok)}
 .cleared .acts{display:flex;gap:10px}
-.cleared .acts .go{flex:1;padding:13px 16px;background:var(--ok);border:0;border-radius:10px;color:var(--ok-ink);font-size:15px;font-weight:700}
+.cleared .acts .go{flex:1;padding:13px 16px;background:var(--ok-btn);border:0;border-radius:10px;color:var(--ok-ink);font-size:15px;font-weight:700}
 .cleared .acts .stay{padding:13px 16px;background:transparent;border:1px solid var(--bd-btn);border-radius:10px;color:var(--ink3);font-size:14px;white-space:nowrap}
 .cleared .foot{font-size:12px;color:var(--ink5)}
 
-.skel{background:linear-gradient(90deg,#161D27,#1C2531,#161D27);background-size:200% 100%;animation:sh 1.2s linear infinite;border-radius:6px;color:transparent!important}
+.skel{background:linear-gradient(90deg,#efeee9,#f7f6f3,#efeee9);background-size:200% 100%;animation:sh 1.2s linear infinite;border-radius:6px;color:transparent!important}
 @keyframes sh{to{background-position:-200% 0}}
 .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--bd-btn);border-top-color:var(--ink3);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -265,9 +399,8 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
   .recbox{padding:16px;gap:10px}
 }
 @media (max-width:1200px){
-  .grid{grid-template-columns:300px minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
-  .rail{grid-row:1 / span 2}
-  .feedback{grid-column:2;border-top:1px solid var(--line-weak)}
+  .mode3{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+  .feedback{border-top:1px solid var(--line-weak)}
   .practice{border-right:0}
 }
 </style>
@@ -279,34 +412,36 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
   <header class="topbar">
     <div class="brand">
       <div class="logo"></div>
-      <div class="app-title" data-t="app">シャドーイング練習</div>
-      <div class="steps">
-        <span class="step" id="step1">1 <span data-t="step1">選材</span></span>
-        <span class="sep">›</span>
-        <span class="step" id="step2">2 <span data-t="step2short">練習</span></span>
-        <span class="sep">›</span>
-        <span class="step" id="step3">3 <span data-t="step3">次の文</span></span>
-      </div>
+      <div class="app-title">発音練習</div>
+      <div class="crumb" id="crumb"></div>
     </div>
     <div class="topright">
-      <span><span data-t="sentTotal">练过</span> <b id="statSent">0</b> <span data-t="sentUnit">句</span></span>
-      <span class="vline"></span>
-      <span><span data-t="takes">录音</span> <b id="statTakes">0</b></span>
+      <span><span data-t="todayN">今日</span> <b id="statTakes">0</b> <span data-t="times">回</span></span>
       <span class="vline"></span>
       <span class="langsw" id="levelSw">
         <button data-lv="easy" data-t="lvEasy">入门</button>
         <button data-lv="normal" data-t="lvNormal">标准</button>
         <button data-lv="hard" data-t="lvHard">严格</button>
       </span>
-      <span class="vline"></span>
       <span class="langsw"><button id="langZh" class="on">中文</button><button id="langJa">日本語</button></span>
+      <span class="vline"></span>
+      <span class="local"><i></i>ローカル実行</span>
       <button id="quitBtn" class="ghost" hidden data-t="quit">退出程序</button>
     </div>
   </header>
 
   <main class="grid">
 
-    <!-- ============ sidebar：折叠后的细轨（v7） ============ -->
+    <!-- ===================== 模式轨 ===================== -->
+    <nav class="moderail" id="moderail">
+      <button data-m="sound"><span>音</span><span class="prog"></span></button>
+      <button data-m="word"><span>語</span><span class="prog"></span></button>
+      <button data-m="sentence" class="on"><span>文</span><span class="prog"></span></button>
+      <button data-m="record"><span>記</span></button>
+      <div class="hintk">1 / 2 / 3<br>切替</div>
+    </nav>
+
+    <!-- ============ sidebar：折叠后的细轨 ============ -->
     <aside class="rail-mini" id="railMini">
       <button class="exp" id="railExpand" title="展开">»</button>
       <div class="vlabel" data-t="source">素材</div>
@@ -315,7 +450,8 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
     </aside>
 
     <!-- ===================== sidebar ===================== -->
-    <aside class="rail">
+    <aside class="rail" id="railBody">
+      <div data-rail="sentence" class="railsec">
       <div>
         <div class="sec-head">
           <div class="sec-title" data-t="news">ニュース</div>
@@ -373,103 +509,132 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
         <div class="sec-head"><div class="sec-title" data-t="saved">已截好的参考句</div></div>
         <div class="chunk-list" id="segList"></div>
       </div>
+      </div>
+      <div data-rail="sound" class="railsec" hidden id="railSound"></div>
+      <div data-rail="word" class="railsec" hidden id="railWord"></div>
+      <div data-rail="record" class="railsec" hidden id="railRecord"></div>
     </aside>
 
+    <!-- ===================== main ===================== -->
+    <div class="modemain" id="modemain">
+
+      <!-- 模式③ 文 -->
+      <div class="modepanel" id="panel-sentence">
+        <div class="mode3">
     <!-- ===================== center ===================== -->
-    <section class="practice">
-      <div class="bodycard" id="bodyCard" hidden>
-        <div class="hd">
-          <div class="sec-title" data-t="bodyTitle">本文</div>
-          <button id="rubyBtn" class="btn-s" style="font-size:11px" data-t="ruby">显示注音</button>
-        </div>
-        <div class="body scroll" id="articleText"></div>
-        <div class="foot" data-t="bodyFoot">绿色底是正在练的那一句，点正文里的任意一句也能切过去。</div>
-      </div>
+        <section class="practice">
+          <div class="bodycard" id="bodyCard" hidden>
+            <div class="hd">
+              <div class="sec-title" data-t="bodyTitle">本文</div>
+              <button id="rubyBtn" class="btn-s" style="font-size:11px" data-t="ruby">显示注音</button>
+            </div>
+            <div class="body scroll" id="articleText"></div>
+            <div class="foot" data-t="bodyFoot">绿色底是正在练的那一句，点正文里的任意一句也能切过去。</div>
+          </div>
 
-      <div class="nowline">
-        <div class="sec-title" data-t="nowPracticing">練習中</div>
-        <div class="meta" id="refMeta"></div>
-      </div>
+          <div class="stair" id="stairMain" hidden></div>
 
-      <div class="player">
-        <button id="playRefBtn">▶ <span data-t="playRef">听播音员</span></button>
-        <button id="loopBtn" class="tog" data-t="loop">循环</button>
-        <div class="progress"><i id="refProg"></i></div>
-        <audio id="refAudio" preload="auto" hidden></audio>
-      </div>
+          <div class="nowline">
+            <div class="sec-title" data-t="nowPracticing">練習中</div>
+            <div class="meta" id="refMeta"></div>
+          </div>
 
-      <div class="recbox">
-        <button class="rec-btn" id="recBtn" disabled aria-label="录音"><span class="dot"></span></button>
-        <div class="rec-main" id="recHint" data-t="pickFirstHint">先在左边选一句参考</div>
-        <div class="rec-sub" id="recSub" data-t="recHint">可以连读三四遍再停，会自动挑最好的一遍。</div>
-        <div class="combo" id="combo" hidden>
-          <span class="dots" id="comboDots"></span>
-          <span class="n" id="comboN"></span>
-        </div>
-      </div>
+          <div class="player">
+            <button id="playRefBtn">▶ <span data-t="playRef">听播音员</span></button>
+            <button id="loopBtn" class="tog" data-t="loop">循环</button>
+            <div class="progress"><i id="refProg"></i></div>
+            <audio id="refAudio" preload="auto" hidden></audio>
+          </div>
 
-      <div class="histcard" id="history" hidden>
-        <div class="hd"><b data-t="history">这句的记录</b><span id="trendNote"></span></div>
-        <div class="rows scroll" id="histBody"></div>
-      </div>
-    </section>
-
-    <!-- ===================== right ===================== -->
-    <section class="feedback">
-      <div class="fb-head">
-        <div class="t" data-t="feedback">フィードバック</div>
-        <div class="take" id="takeStamp"></div>
-      </div>
-
-      <div id="result" hidden>
-        <div class="verdict" id="verdict"><div class="ico">▲</div><div><div class="tx" id="verdictTx"></div><div class="takes" id="takesLine"></div></div></div>
-
-        <div class="metrics" style="margin-top:16px">
-          <div class="metric"><div class="k" data-t="mShape">形状（相关）</div>
-            <div class="row"><div class="v" id="mCorr">–</div><div class="goal" id="goalCorr">/ 0.82</div></div>
-            <div class="bar"><i id="bCorr"></i></div><div class="d" id="dCorr"></div></div>
-          <div class="metric"><div class="k" data-t="mAmp">幅度（比播音员）</div>
-            <div class="row"><div class="v" id="mAmp">–</div><div class="goal" id="goalAmp">/ 58%</div></div>
-            <div class="bar"><i id="bAmp"></i></div><div class="d" id="dAmp"></div></div>
-          <div class="metric"><div class="k" data-t="mRate">速度（时长比）</div>
-            <div class="row"><div class="v" id="mRatio">–</div><div class="goal" id="goalRatio">/ 1.0×</div></div>
-            <div class="bar"><i id="bRatio"></i></div><div class="d" id="dRatio"></div></div>
-        </div>
-
-        <div class="chartcard" style="margin-top:16px">
-          <div class="hd">
-            <b data-t="chartTitle">音高曲线对比</b>
-            <div class="legend">
-              <span><i style="background:var(--ref)"></i><span data-t="anchor">播音员</span></span>
-              <span><i style="background:var(--mine)"></i><span data-t="you">你（已对齐）</span></span>
-              <button id="kanaToggle" class="btn-s" data-t="kanaOff">只标问题字</button>
+          <div class="recbox">
+            <button class="rec-btn" id="recBtn" disabled aria-label="录音"><span class="dot"></span></button>
+            <div class="rec-main" id="recHint" data-t="pickFirstHint">先在左边选一句参考</div>
+            <div class="rec-sub" id="recSub" data-t="recHint">可以连读三四遍再停，会自动挑最好的一遍。</div>
+            <div class="combo" id="combo" hidden>
+              <span class="dots" id="comboDots"></span>
+              <span class="n" id="comboN"></span>
             </div>
           </div>
-          <div class="pitch-wrap"><canvas id="pitchCanvas"></canvas><div class="pitch-tip" id="pitchTip"></div></div>
-          <div class="chart-note" data-t="chartNote">纵轴：半音，相对各自中位数；横轴：秒。曲线上只标了偏差最大的几个假名，＋是你读高了，−是你读低了。</div>
-        </div>
 
-        <div class="fb-actions" style="margin-top:16px">
-          <details class="more"><summary data-t="detail">详细图（响度和节奏）</summary><img id="chartImg" alt="" loading="lazy"></details>
-          <button id="playMineBtn">▶ <span data-t="myAudio">我的这一遍</span></button>
-          <audio id="myAudio" preload="auto" hidden></audio>
+          <div class="histcard" id="history" hidden>
+            <div class="hd"><b data-t="history">这句的记录</b><span id="trendNote"></span></div>
+            <div class="rows scroll" id="histBody"></div>
+          </div>
+        </section>
+
+        <!-- ===================== right ===================== -->
+        <section class="feedback">
+          <div class="fb-head">
+            <div class="t" data-t="feedback">フィードバック</div>
+            <div class="take" id="takeStamp"></div>
+          </div>
+
+          <div id="result" hidden>
+            <div class="onething" id="verdict">
+              <div class="kick" id="oneKick" data-t="oneKick">今回直すのは 1 つだけ</div>
+              <div class="tx" id="verdictTx"></div>
+              <div class="takes" id="takesLine"></div>
+              <div class="acts" id="oneActs" hidden><button class="jump" id="oneJump"></button><button class="later" id="oneLater" data-t="later">後で</button></div>
+            </div>
+
+            <div class="stair" id="stairFb" hidden style="margin-top:16px"></div>
+
+            <div class="metrics small" style="margin-top:16px">
+              <div class="metric"><div class="k" data-t="mShape">形状（相关）</div>
+                <div class="row"><div class="v" id="mCorr">–</div><div class="goal" id="goalCorr">/ 0.82</div></div>
+                <div class="bar"><i id="bCorr"></i></div></div>
+              <div class="metric"><div class="k" data-t="mAmp">幅度（比播音员）</div>
+                <div class="row"><div class="v" id="mAmp">–</div><div class="goal" id="goalAmp">/ 58%</div></div>
+                <div class="bar"><i id="bAmp"></i></div></div>
+              <div class="metric"><div class="k" data-t="mRate">速度（时长比）</div>
+                <div class="row"><div class="v" id="mRatio">–</div><div class="goal" id="goalRatio">/ 1.0×</div></div>
+                <div class="bar"><i id="bRatio"></i></div></div>
+            </div>
+
+            <details class="other" id="otherBox"><summary data-t="otherDiag">その他の診断・ピッチ曲線・詳細図</summary>
+              <div class="diag" id="diagNotes"></div>
+              <div class="chartcard">
+              <div class="hd">
+                <b data-t="chartTitle">音高曲线对比</b>
+                <div class="legend">
+                  <span><i style="background:var(--ref)"></i><span data-t="anchor">播音员</span></span>
+                  <span><i style="background:var(--mine)"></i><span data-t="you">你（已对齐）</span></span>
+                  <button id="kanaToggle" class="btn-s" data-t="kanaOff">只标问题字</button>
+                </div>
+              </div>
+              <div class="pitch-wrap"><canvas id="pitchCanvas"></canvas><div class="pitch-tip" id="pitchTip"></div></div>
+              <div class="chart-note" data-t="chartNote">纵轴：半音，相对各自中位数；横轴：秒。曲线上只标了偏差最大的几个假名，＋是你读高了，−是你读低了。</div>
+            </div>
+
+            <div class="fb-actions" style="margin-top:16px">
+              <details class="more"><summary data-t="detail">详细图（响度和节奏）</summary><img id="chartImg" alt="" loading="lazy"></details>
+              <button id="playMineBtn">▶ <span data-t="myAudio">我的这一遍</span></button>
+              <audio id="myAudio" preload="auto" hidden></audio>
+            </div>
+            </details>
+          </div>
+
+          <div class="cleared" id="cleared" hidden>
+            <div class="hd"><div class="badge">✓</div><h3 data-t="clearedTitle">这句练稳了</h3></div>
+            <p id="clearedBody"></p>
+            <div class="combo"><span class="dots" id="clearedDots"></span></div>
+            <div class="metrics" id="clearedMetrics"></div>
+            <div class="acts">
+              <button class="go" id="nextBtn" data-t="nextSentence">练下一句 →</button>
+              <button class="stay" id="stayBtn" data-t="keepGoing">再练几遍</button>
+            </div>
+            <div class="foot" data-t="clearedFoot">换句后这句会记进今天的进度，随时能从侧栏回来重练。</div>
+          </div>
+
+          <div class="empty" id="fbEmpty" data-t="fbEmpty">录一遍就能看到反馈。</div>
+        </section>
         </div>
       </div>
 
-      <div class="cleared" id="cleared" hidden>
-        <div class="hd"><div class="badge">✓</div><h3 data-t="clearedTitle">这句练稳了</h3></div>
-        <p id="clearedBody"></p>
-        <div class="combo"><span class="dots" id="clearedDots"></span></div>
-        <div class="metrics" id="clearedMetrics"></div>
-        <div class="acts">
-          <button class="go" id="nextBtn" data-t="nextSentence">练下一句 →</button>
-          <button class="stay" id="stayBtn" data-t="keepGoing">再练几遍</button>
-        </div>
-        <div class="foot" data-t="clearedFoot">换句后这句会记进今天的进度，随时能从侧栏回来重练。</div>
-      </div>
-
-      <div class="empty" id="fbEmpty" data-t="fbEmpty">录一遍就能看到反馈。</div>
-    </section>
+      <div class="modepanel pane" id="panel-sound" hidden></div>
+      <div class="modepanel pane" id="panel-word" hidden></div>
+      <div class="modepanel pane" id="panel-record" hidden></div>
+    </div>
   </main>
 </div>
 
@@ -477,7 +642,8 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
 const $ = id => document.getElementById(id);
 const state = { news: [], segments: [], article: null, ref: null, rec: null, chunks: [], history: {},
                 combo: 0, kanaAll: false, lang: localStorage.getItem('lang') || 'zh',
-                level: localStorage.getItem('level') || 'normal' };
+                level: localStorage.getItem('level') || 'normal',
+                mode: localStorage.getItem('mode') || 'sentence' };
 
 /* ===================== i18n ===================== */
 const STR = {
@@ -488,6 +654,12 @@ const STR = {
     aligned:"已按假名对齐", alignDo:"按假名对齐这篇", ruby:"显示注音", rubyOff:"隐藏注音",
     source:"素材", collapse:"收起", expand:"展开", addSource:"加素材",
     lvEasy:"入门", lvNormal:"标准", lvHard:"严格",
+    todayN:"累计", times:"回",
+    mSound:"音", mWord:"語", mSentence:"文", mRecord:"記録",
+    crumbPick:"选一句", crumbPractice:"练习中", crumbDone:"已练稳",
+    stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
+    oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた",
     bodyTitle:"本文", bodyFoot:"绿色底是正在练的那一句，点正文里的任意一句也能切过去。",
     manual:"手动截取一段", markStart:"起点=现在", markEnd:"终点=现在", preview:"试听这段", useIt:"用这段",
     manualNote:"用上面「这篇的正文」里的播放器定位：放到句首点起点，句尾点终点。",
@@ -515,6 +687,12 @@ const STR = {
     aligned:"仮名で整列済み", alignDo:"この記事を仮名で整列", ruby:"ふりがな", rubyOff:"ふりがなを隠す",
     source:"素材", collapse:"折りたたむ", expand:"開く", addSource:"素材を追加",
     lvEasy:"やさしい", lvNormal:"ふつう", lvHard:"きびしい",
+    todayN:"累計", times:"回",
+    mSound:"音", mWord:"語", mSentence:"文", mRecord:"記録",
+    crumbPick:"文を選ぶ", crumbPractice:"練習中", crumbDone:"安定",
+    stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
+    oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた",
     bodyTitle:"本文", bodyFoot:"緑の背景が今練習している文です。本文中のどの文をクリックしても切り替えられます。",
     manual:"手動で切り出す", markStart:"開始=現在", markEnd:"終了=現在", preview:"試聴", useIt:"これを使う",
     manualNote:"「本文」のプレーヤーで位置を合わせ、文頭で開始、文末で終了を押します。",
@@ -551,6 +729,16 @@ const DYN = {
     trendNote:c=>`达标线 ${c}`,
     clearedBody:(n,c)=>`形状分连续 ${n} 次在 ${c} 以上，幅度和速度也在范围内。可以换下一句了。`,
     tooLong:s=>`这句 ${s} 秒，偏长，建议切短`,
+    one:{
+      ok:()=>'三项都达标了。再稳几遍就可以换下一句。',
+      pitch:(k,up)=>`「${k}」要更${up?'高':'低'}。先用${up?'高':'低'}音把位置定下来，再出声。`,
+      pitch2:(k,up)=>`还是「${k}」。把前一拍当跳板：${up?'从低处往上跨一档，跨完保持住':'从高处往下落一档，落下去别回弹'}。`,
+      amp:()=>'高低的差再拉大一点——高的地方更高、低的地方更低。',
+      amp2:()=>'起伏还是不够。试着把整句的最高拍和最低拍先各读一遍，找到这个音程再连起来。',
+      rate:(slow)=>slow?'再慢一点，跟着参考音的节奏走。':'再快一点，别在拍之间留空。',
+      rate2:(slow)=>slow?'还是偏慢。先跟着参考音默读一遍，把停顿的位置对上再出声。':'还是偏快。每个假名都读满，尤其是长音和促音。',
+      jump:(k)=>`「${k}」を音で練習 →`,
+    },
     mLead:' 具体是：', mHigh:n=>`高了 ${n} 个半音`, mLow:n=>`低了 ${n} 个半音`,
     mShort:'太短', mLong:'拖长了', mSep:'；', mQuote:(k,p)=>`「${k}」${p}`, mEnd:'。'
   },
@@ -567,6 +755,16 @@ const DYN = {
     trendNote:c=>`目標 ${c}`,
     clearedBody:(n,c)=>`形のスコアが ${n} 回連続で ${c} 以上。幅と速さも範囲内です。次の文に進めます。`,
     tooLong:s=>`この文は ${s} 秒と長めです。短く切ることをおすすめします`,
+    one:{
+      ok:()=>'三項ともクリアです。あと数回安定すれば次の文へ。',
+      pitch:(k,up)=>`「${k}」をもっと${up?'高く':'低く'}。${up?'高い':'低い'}音で位置を決めてから声を出す。`,
+      pitch2:(k,up)=>`まだ「${k}」です。前の拍を踏み台に：${up?'低いところから一段上げて、上げたまま保つ':'高いところから一段下げて、戻さない'}。`,
+      amp:()=>'高低の差をもっと大きく——高いところはより高く、低いところはより低く。',
+      amp2:()=>'まだ抑揚が小さいです。文中の最高拍と最低拍を単独で読み、その音程をつかんでからつなげてみてください。',
+      rate:(slow)=>slow?'もう少しゆっくり。お手本のリズムに合わせて。':'もう少し速く。拍の間を空けないように。',
+      rate2:(slow)=>slow?'まだ遅いです。まずお手本に合わせて黙読し、間の位置を合わせてから声を出す。':'まだ速いです。長音と促音を特に、각拍をしっかり伸ばして。'.replace('각','各'),
+      jump:(k)=>`「${k}」を音で練習 →`,
+    },
     mLead:' 内訳：', mHigh:n=>`${n} 半音高い`, mLow:n=>`${n} 半音低い`,
     mShort:'短すぎ', mLong:'長すぎ', mSep:'／', mQuote:(k,p)=>`「${k}」は${p}`, mEnd:'。'
   }
@@ -590,12 +788,26 @@ function applyLang() {
 $('langZh').onclick = () => { state.lang = 'zh'; localStorage.setItem('lang','zh'); applyLang(); };
 $('langJa').onclick = () => { state.lang = 'ja'; localStorage.setItem('lang','ja'); applyLang(); };
 
-function renderSteps() {
-  const cleared = !$('cleared').hidden;
-  $('step1').classList.toggle('on', !state.ref);
-  $('step2').classList.toggle('on', !!state.ref && !cleared);
-  $('step3').classList.toggle('on', cleared);
+const MODES = ['sound', 'word', 'sentence', 'record'];
+function renderSteps() {   // 顶栏面包屑：模式 + 当前进度
+  const crumb = { sound: T('mSound'), word: T('mWord'), sentence: T('mSentence'), record: T('mRecord') }[state.mode];
+  const tail = state.mode !== 'sentence' ? '' :
+    !state.ref ? ' · ' + T('crumbPick') : !$('cleared').hidden ? ' · ' + T('crumbDone') : ' · ' + T('crumbPractice');
+  $('crumb').textContent = crumb + tail;
 }
+function setMode(m) {
+  if (!MODES.includes(m)) m = 'sentence';
+  state.mode = m; localStorage.setItem('mode', m);
+  $('moderail').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  MODES.forEach(k => $('panel-' + k).hidden = k !== m);
+  $('railBody').querySelectorAll('[data-rail]').forEach(el => el.hidden = el.dataset.rail !== m);
+  renderSteps();
+  if (m === 'sound') initSound();
+  if (m === 'word') initWord();
+  if (m === 'record') initRecord();
+  if (m === 'sentence' && lastResult && !$('result').hidden) setTimeout(() => drawPitch(lastResult), 60);
+}
+$('moderail').querySelectorAll('button').forEach(b => b.onclick = () => setMode(b.dataset.m));
 
 /* ===================== 数据 ===================== */
 async function api(path, opts) {
@@ -610,7 +822,6 @@ async function loadAll() {
   $('ttsSec').hidden = !j.tts;
   $('quitBtn').hidden = !j.frozen;
   const sm = j.summary || {};
-  $('statSent').textContent = sm.sentences || 0;
   $('statTakes').textContent = sm.attempts || 0;
   state.align = j.align;
   renderNews(); renderSegs(); renderSteps();
@@ -795,7 +1006,7 @@ $('rubyBtn').onclick = () => {
   renderCombo();
   $('railCollapse').title = T('collapse'); $('railExpand').title = T('expand'); $('railAdd').title = T('addSource');
 };
-$('quitBtn').onclick = async () => { if (confirm('退出？')) { await fetch('/api/quit', {method:'POST'}); document.body.innerHTML = '<p style="padding:40px;color:#66707C">已退出，可以关闭这个标签页。</p>'; } };
+$('quitBtn').onclick = async () => { if (confirm('退出？')) { await fetch('/api/quit', {method:'POST'}); document.body.innerHTML = '<p style="padding:40px;color:rgba(0,0,0,.58)">已退出，可以关闭这个标签页。</p>'; } };
 
 $('fetchBtn').onclick = async () => {
   $('fetchBtn').disabled = true; $('fetchBtn').innerHTML = '<span class="spin"></span>';
@@ -866,6 +1077,7 @@ function clearRef() {  // 删掉的正好是正在练的那句：右栏也要退
   $('recHint').textContent = T('pickFirstHint');
   $('result').hidden = true; $('cleared').hidden = true; $('fbEmpty').hidden = false;
   $('history').hidden = true; $('combo').hidden = true; $('takeStamp').textContent = '';
+  $('stairMain').hidden = true; $('stairFb').hidden = true; state.target = null;
   lastResult = null; renderSteps(); highlightSentence(); renderMini();
 }
 function renderSegs() {
@@ -905,7 +1117,8 @@ function useRef(path) {
   $('result').hidden = true; $('cleared').hidden = true; $('fbEmpty').hidden = false;
   $('takeStamp').textContent = '';
   lastResult = null;
-  loadHistory(path);
+  loadHistory(path); loadTarget(path);
+  state.oneSig = null; state.oneRun = 0;
   $('recHint').textContent = len > 6 ? D('tooLong')(len.toFixed(0)) : T('recStart');
   $('combo').hidden = false; renderCombo();
   renderHistory(); renderSteps();
@@ -948,12 +1161,18 @@ function stopRec() {
     $('result').hidden = false; $('fbEmpty').hidden = true; $('cleared').hidden = true;
     ['mCorr','mAmp','mRatio'].forEach(i => $(i).classList.add('skel'));
     $('verdictTx').textContent = T('analyzing');
+    $('result').style.opacity = '.45';
   }
 }
 $('recBtn').onclick = () => (state.rec && state.rec.state === 'recording') ? stopRec() : startRec();
 document.addEventListener('keydown', e => {
   if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
-  if (e.code === 'Space') { e.preventDefault(); $('recBtn').click(); }
+  if (e.key === '1') return setMode('sound');
+  if (e.key === '2') return setMode('word');
+  if (e.key === '3') return setMode('sentence');
+  if (e.code === 'Space') { e.preventDefault();
+    const b = { sentence: 'recBtn', sound: 's1rec', word: 'w2rec' }[state.mode];
+    if (b && $(b)) $(b).click(); }
   if (e.key === 'r' || e.key === 'R') { const ra = $('refAudio'); ra.currentTime = 0; ra.play(); }
 });
 
@@ -1027,7 +1246,7 @@ $('nextBtn').onclick = () => {
 let lastResult = null;
 function showResult(r, keepCombo) {
   lastResult = r;
-  $('result').hidden = false; $('fbEmpty').hidden = true; $('cleared').hidden = true;
+  $('result').hidden = false; $('result').style.opacity = ''; $('fbEmpty').hidden = true; $('cleared').hidden = true;
   ['mCorr','mAmp','mRatio'].forEach(i => $(i).classList.remove('skel'));
   $('takeStamp').textContent = 'take ' + ((state.history[state.ref?.path] || []).length || 1) + ' · ' + (r.at || '').slice(11);
 
@@ -1048,21 +1267,22 @@ function showResult(r, keepCombo) {
   set('mRatio','bRatio', r.ratio.toFixed(2) + '×', cRate, Math.min(r.ratio, 1 / r.ratio) * 100);
 
   const corrBad = r.corr < 0.8, ampBad = r.amp < 0.6 || r.amp > 1.6, ratioBad = r.ratio > 1.15 || r.ratio < 0.8;
-  $('dCorr').textContent = corrBad ? (r.corr < 0.5 ? D('cVeryBad') : D('cSoso')) : D('cGood');
-  $('dAmp').textContent = D('aSpan')(r.ref_span, r.my_span) + (r.amp < 0.6 ? D('aSmall') : r.amp > 1.6 ? D('aBig') : '');
-  $('dRatio').textContent = r.ratio > 1.35 ? D('rSlow')(Math.round((r.ratio - 1) * 100)) : r.ratio > 1.15 ? D('rABit')
+  const dC = corrBad ? (r.corr < 0.5 ? D('cVeryBad') : D('cSoso')) : D('cGood');
+  const dA = D('aSpan')(r.ref_span, r.my_span) + (r.amp < 0.6 ? D('aSmall') : r.amp > 1.6 ? D('aBig') : '');
+  const dR = r.ratio > 1.35 ? D('rSlow')(Math.round((r.ratio - 1) * 100)) : r.ratio > 1.15 ? D('rABit')
     : r.ratio < 0.6 ? D('rShort') : r.ratio < 0.75 ? D('rFast') : D('rOk');
 
-  const v = $('verdict');
-  v.className = 'verdict' + (r.ok ? ' ok' : '');
-  v.querySelector('.ico').textContent = r.ok ? '✓' : '▲';
-  let text = r.ok ? D('vOk')
-    : ampBad && r.amp < 0.6 ? D('vAmp')
-    : corrBad ? D('vCorr')
-    : r.ratio < 0.6 ? D('vShort')
-    : D('vSpeed');
-  text += moraHint(r);
-  $('verdictTx').textContent = text;
+  // 其余诊断收进折叠块（原来的三条注释 + 逐字提示）
+  $('diagNotes').textContent = [dC, dA, dR].join('　·　') + moraHint(r);
+
+  renderOneThing(r);
+
+  // 台阶：目标 vs 你（只有做过按假名对齐才有目标调型）
+  if (state.target && r.mora && r.mora.length === state.target.kana.length) {
+    const d = { kana: state.target.kana, levels: state.target.levels, user: binLevels(r.mora, 'my_pitch') };
+    renderStair($('stairFb'), d);
+    renderStair($('stairMain'), d);
+  }
 
   $('takesLine').textContent = r.takes.length > 1
     ? D('takes')(r.takes.length, r.best_take.start, r.best_take.end) : '';
@@ -1097,6 +1317,368 @@ $('kanaToggle').onclick = () => {
   $('kanaToggle').style.background = state.kanaAll ? 'var(--bg-card2)' : 'transparent';
   if (lastResult) drawPitch(lastResult);
 };
+
+
+
+
+/* ===================== 通用录音器（模式① / ②） ===================== */
+let gRec = null, gChunks = [], gOnStop = null;
+async function recStart(btn, onBlob) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/mp4';
+    gRec = new MediaRecorder(stream, { mimeType: mime }); gChunks = []; gOnStop = onBlob;
+    gRec.ondataavailable = e => gChunks.push(e.data);
+    gRec.onstop = () => { stream.getTracks().forEach(t => t.stop()); gOnStop(new Blob(gChunks, { type: mime })); };
+    gRec.start(); btn.classList.add('on');
+  } catch (e) { alert('打不开麦克风: ' + e.message); }
+}
+function recStop(btn) { if (gRec && gRec.state === 'recording') { gRec.stop(); btn.classList.remove('on'); } }
+const recOn = () => gRec && gRec.state === 'recording';
+// 第一次合成某个音要 ~1.3 秒，选中时就先在后台做好，等用户点播放时已命中缓存
+function prefetchRef(text, variants) {
+  variants.forEach(([tempo, pad]) =>
+    api(`/api/say?tempo=${tempo}&pad=${pad}&text=` + encodeURIComponent(text)).catch(() => {}));
+}
+function playRef(text, tempo = 1, pad = .12) { api(`/api/say?tempo=${tempo}&pad=${pad}&text=` + encodeURIComponent(text)).then(j => new Audio('/media?path=' + encodeURIComponent(j.path)).play()).catch(e => alert(e.message)); }
+
+/* ===================== Sparkline（§5.2） ===================== */
+function spark(vals, W, H, big) {
+  const n = vals.length;
+  if (!n) return '';
+  const X = i => 3 + (n === 1 ? 0 : i / (n - 1) * (W - 6));
+  const Y = v => H - 3 - (Math.max(20, Math.min(100, v)) - 20) / 80 * (H - 6);
+  const pts = vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  const last = vals[n - 1], col = last >= 60 ? '#1f9d5b' : '#b8730a';
+  // 横向是拉伸的，文字放进 SVG 会跟着变形，所以 60% 标签用 HTML 覆盖
+  const svg = `<svg class="sparkw" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px">` +
+    `<line x1="0" y1="${Y(60).toFixed(1)}" x2="${W}" y2="${Y(60).toFixed(1)}" stroke="rgba(31,157,91,.45)" stroke-width="1" stroke-dasharray="4 4"/>` +
+    `<polyline points="${pts}" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2" stroke-linejoin="round"/>` +
+    `<circle cx="${X(n - 1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="${big ? 5 : 3.5}" fill="${col}"/></svg>`;
+  return `<div style="position:relative">` + svg +
+    (big ? `<span style="position:absolute;right:4px;top:${(Y(60) - 16).toFixed(0)}px;font-family:var(--mono);font-size:11px;color:#1f9d5b">60%</span>` : '') +
+    `</div>`;
+}
+
+/* ===================== 模式① 音 ===================== */
+const S1 = { groups: [], gi: 0, si: 0, res: null };
+async function initSound() {
+  if (S1.groups.length) return renderSound();
+  try { const j = await api('/api/sounds'); S1.groups = j.groups; S1.gojuon = j.gojuon; S1.align = j.align; } catch (e) { S1.groups = []; }
+  renderSound();
+}
+const s1cur = () => S1.free || (S1.groups[S1.gi] || { sounds: [] }).sounds[S1.si] || null;
+function s1trend() {
+  const c = s1cur(); if (!c) return [];
+  return (state.all || []).filter(x => x.type === 'sound' && x.kana_text === c.kana)
+    .slice(-14).map(x => Math.round((x.confidence || 0) * 100));
+}
+function renderSound() {
+  const g = S1.groups[S1.gi], c = s1cur();
+  const view = S1.view || 'group';
+  let rail = `<div class="segsw" style="margin-bottom:12px">
+      <button data-v="group" class="${view === 'group' ? 'on' : ''}">難点</button>
+      <button data-v="all" class="${view === 'all' ? 'on' : ''}">五十音</button></div>`;
+  if (view === 'group') {
+    rail += `<div class="sec-head"><div class="sec-title">難点グループ</div></div>` +
+      S1.groups.map((x, i) => {
+        const v = (state.all || []).filter(r => r.type === 'sound' && r.group === x.key).slice(-1)[0];
+        const pct = v ? Math.round(v.confidence * 100) : null;
+        return `<div class="railrow ${i === S1.gi && !S1.free ? 'on' : ''}" data-g="${i}">` +
+          `<span class="dot" style="background:${pct == null ? 'var(--dot-off)' : 'var(--ok)'}"></span>` +
+          `<span class="nm">${x.name}</span><span class="vv">${pct == null ? '—' : pct + '%'}</span></div>`;
+      }).join('') +
+      (g ? `<div style="margin-top:14px"><div class="sec-title">${g.name} の音</div><div class="chips">` +
+        g.sounds.map((s, i) => `<button data-s="${i}" class="${i === S1.si && !S1.free ? 'on' : ''}">${s.kana}</button>`).join('') + '</div></div>' : '') +
+      `<div class="sec-note" style="margin-top:12px">顺序不是五十音，是中国语话者的绊倒顺序。</div>`;
+  } else {
+    rail += `<div class="gtab scroll">` + (S1.gojuon || []).map(sec =>
+      `<div><div class="gsec">${sec.section}</div>` + sec.rows.map(row =>
+        `<div class="grow ${row.length === 3 ? 'y3' : ''}">` + row.map(cell =>
+          cell ? `<button class="gcell ${S1.free && S1.free.kana === cell.kana ? 'on' : ''}" data-k="${cell.kana}" title="${cell.roman}">${cell.kana}</button>`
+               : '<span class="gcell blank"></span>').join('') + '</div>').join('') + '</div>').join('') + '</div>';
+  }
+  $('railSound').innerHTML = rail;
+  $('railSound').querySelectorAll('[data-v]').forEach(e => e.onclick = () => { S1.view = e.dataset.v; renderSound(); });
+  $('railSound').querySelectorAll('[data-g]').forEach(e => e.onclick = () => { S1.gi = +e.dataset.g; S1.si = 0; S1.free = null; S1.res = null; renderSound(); });
+  $('railSound').querySelectorAll('[data-s]').forEach(e => e.onclick = () => { S1.si = +e.dataset.s; S1.free = null; S1.res = null; renderSound(); });
+  $('railSound').querySelectorAll('[data-k]').forEach(e => e.onclick = () => {
+    S1.free = { kana: e.dataset.k, roman: e.title, hint: '', ex: '' }; S1.res = null; renderSound(); });
+
+  if (!c) { $('panel-sound').innerHTML = '<div class="todo">没有内置难点音数据</div>'; return; }
+  const pct = S1.res ? Math.round(S1.res.confidence * 100) : null;
+  const base = S1.base == null ? null : Math.round(S1.base * 100);
+  // 达标 = 到得了参考音的水平（同一个音、同一套度量），不是固定的 60%
+  const col = pct == null ? '' : (base != null && pct >= base * 0.8) ? 'var(--ok)' : 'var(--warn)';
+  const tr = s1trend();
+  $('panel-sound').innerHTML =
+    `<div class="hd1"><div class="t">練習中 · ${S1.free ? '五十音' : g.name}</div>` +
+    `<div class="n">${S1.free ? '' : (S1.si + 1) + ' / ' + g.sounds.length}</div></div>
+     <div class="two">
+       <div class="card">
+         <div class="bigkana">${c.kana}</div><div class="roman">${c.roman}</div>
+         ${c.hint ? `<div class="hintbox">${c.hint}</div>` : ''}
+         ${c.ex ? `<div class="exrow"><em>例</em>${c.ex}</div>` : ''}
+         <div class="btnrow"><button id="s1play">▶ 参考音</button><button id="s1slow" class="line">0.5×</button></div>
+       </div>
+       <div class="card recmini">
+         <button class="rec-btn" id="s1rec"><span class="dot"></span></button>
+         <div style="font-size:14px" id="s1hint">按空格或点红点，读「${c.kana}」</div>
+         <div class="sec-note" id="s1sub">只读这一个音，读完就停。</div>
+         ${S1.res ? `<div class="btnrow"><button id="s1pmine" class="line">▶ 自分</button></div>` : ''}
+       </div>
+     </div>
+     <div class="conf">
+       <div style="display:flex;justify-content:space-between;align-items:baseline">
+         <b style="font-size:13px">整列モデルの確信度</b>
+         <span class="sec-note">参考音（この音の上限）${base == null ? '…' : base + '%'}</span></div>
+       <div class="big ${pct == null ? 'na' : ''}" style="color:${col}">${pct == null ? '—' : pct + '%'}</div>
+       <div class="track"><i style="width:${pct || 0}%;background:${col}"></i>
+         ${base == null ? '' : `<div class="goal" style="left:${base}%"></div>`}</div>
+       <div class="note">これは点数ではなく、整列モデルがこの音を「${c.kana}」と認める確信度。
+         単拍の確信度はもともと低く出る（合成音 104 音の中央値 0.47）ので、固定の合格線は置かず、
+         同じ音の参考音（緑の縦線）と比べてください。</div>
+     </div>
+     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline">
+        <b style="font-size:13px">この音の推移</b><span class="sec-note">直近 14 回</span></div>
+        <div style="margin-top:10px">${tr.length ? spark(tr, 420, 92, false) : '<div class="sec-note">还没有记录</div>'}</div></div>`;
+  $('s1play').onclick = () => playRef(c.kana, .8, .15);   // 单个假名太短，拉长并留白
+  $('s1slow').onclick = () => playRef(c.kana, .5, .15);
+  if (S1.res) $('s1pmine').onclick = () => new Audio('/media?path=' + encodeURIComponent(S1.res.recording)).play();
+  $('s1rec').onclick = () => recOn() ? recStop($('s1rec')) : recStart($('s1rec'), sendSound);
+  loadBaseline(c.kana);
+  prefetchRef(c.kana, [[.8, .15], [.5, .15]]);
+}
+async function loadBaseline(kana) {
+  if (S1.baseKana === kana) return;
+  S1.baseKana = kana; S1.base = null;
+  try { const j = await api('/api/baseline?kana=' + encodeURIComponent(kana));
+        if (S1.baseKana === kana) { S1.base = j.confidence; renderSound(); } } catch (e) {}
+}
+async function sendSound(blob) {
+  const c = s1cur(); $('s1hint').innerHTML = '<span class="spin"></span> 分析中…';
+  try {
+    const r = await api(`/api/pron?type=sound&kana=${encodeURIComponent(c.kana)}&group=${encodeURIComponent(S1.free ? 'gojuon' : S1.groups[S1.gi].key)}`,
+      { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob });
+    S1.res = r; (state.all ||= []).push(r); renderSound();
+  } catch (e) { $('s1hint').innerHTML = '<span style="color:var(--bad)">' + e.message + '</span>'; }
+}
+
+/* ===================== 模式② 語 ===================== */
+const S2 = { words: [], i: 0, res: null, combo: 0 };
+async function initWord() {
+  if (S2.words.length) return renderWord();
+  try { const j = await api('/api/wordlist'); S2.words = j.words; } catch (e) { S2.words = []; }
+  renderWord();
+}
+function stableWords() {
+  const m = {};
+  (state.all || []).filter(x => x.type === 'word').forEach(x => { m[x.word] = x.ok ? (m[x.word] || 0) + 1 : 0; });
+  return m;
+}
+function renderWord() {
+  const st = stableWords();
+  $('railWord').innerHTML = `<div class="sec-head"><div class="sec-title">最小対（内蔵辞書）</div><div class="sec-note">${S2.words.length} 組</div></div>` +
+    S2.words.map((w, i) => {
+      const ok = (st[w.a.kanji] || 0) >= 3;
+      return `<div class="railrow ${i === S2.i ? 'on' : ''}" data-w="${i}"><span class="dot" style="background:${ok ? 'var(--ok)' : 'var(--dot-off)'}"></span>` +
+        `<span class="nm">${w.a.kanji} / ${w.b.kanji}</span><span class="vv" style="color:var(--ok);opacity:${ok ? 1 : 0}">安定</span></div>`;
+    }).join('') + `<div class="sec-note" style="margin-top:12px">声调在辞典里，所以目标一定正确。</div>`;
+  $('railWord').querySelectorAll('[data-w]').forEach(e => e.onclick = () => { S2.i = +e.dataset.w; S2.res = null; S2.combo = 0; renderWord(); });
+
+  const w = S2.words[S2.i]; if (!w) { $('panel-word').innerHTML = '<div class="todo">没有内置词表</div>'; return; }
+  const a = w.a, kana = a.kana.join('');
+  $('panel-word').innerHTML =
+    `<div class="hd1"><div class="t">練習中</div><div class="n">${S2.i + 1} / ${S2.words.length}</div></div>
+     <div class="card">
+       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+         <div><span class="wordk">${a.kanji}</span> <span style="font-size:14px;color:var(--ink3)">${a.gloss}</span></div>
+         <div class="n" style="font-family:var(--mono);font-size:12px;color:var(--ink5)">${kana} · ${a.kana.length} 拍</div>
+       </div>
+       <div class="stair" id="stairWord" style="margin-top:14px"></div>
+       <div class="btnrow"><button id="w2a">▶ ${a.kanji}</button><button id="w2b" class="line">▶ ${w.b.kanji}（対比）</button></div>
+     </div>
+     <div class="two">
+       <div class="card recmini">
+         <button class="rec-btn" id="w2rec"><span class="dot"></span></button>
+         <div style="font-size:14px" id="w2hint">按空格或点红点，读「${a.kanji}」</div>
+         <div class="combo"><span class="dots" id="w2dots"></span><span class="n" id="w2n"></span></div>
+       </div>
+       <div class="judge ${S2.res ? (S2.res.ok ? 'y' : 'n') : ''}" id="w2judge">
+         <div style="display:flex;gap:10px;align-items:flex-start">
+           ${S2.res ? `<div class="ico">${S2.res.ok ? '✓' : '✕'}</div>` : ''}
+           <div style="flex:1">
+             <div class="kick">${!S2.res ? '録音するとここに判定が出ます' : S2.res.ok ? '走向が一致' : '走向がずれています'}</div>
+             <div class="tx" id="w2tx"></div>
+           </div>
+         </div>
+         <div class="fix">ここでは幅と速さは見ない。判定は「各拍の高低が目標と一致しているか」だけ。</div>
+       </div>
+     </div>`;
+  renderStair($('stairWord'), { kana: a.kana, levels: a.levels, user: S2.res ? S2.res.levels : null });
+  dots($('w2dots'), 3, S2.combo); $('w2n').textContent = `${S2.combo} / 3　連続`;
+  $('w2a').onclick = () => playRef(kana);
+  $('w2b').onclick = () => playRef(w.b.kana.join(''));
+  prefetchRef(kana, [[1, .12]]); prefetchRef(w.b.kana.join(''), [[1, .12]]);
+  $('w2rec').onclick = () => recOn() ? recStop($('w2rec')) : recStart($('w2rec'), sendWord);
+  // 判词：点名哪一拍、往哪个方向、会被听成什么
+  if (S2.res) {
+    const wrong = S2.res.wrong || [];
+    $('w2tx').textContent = S2.res.ok
+      ? `${a.kana.join('')} の高低が目標どおりです。`
+      : wrong.map(i => {
+          const want = a.levels[i] === 1 ? '高い拍' : '低い拍';
+          const now = S2.res.levels[i] === 1 ? '高いまま' : '低いまま';
+          return `${a.kana[i]} が ${now} です。目標は ${want}。`;
+        }).join('') + `このままだと「${w.b.kanji}」に聞こえます。`;
+  }
+}
+async function sendWord(blob) {
+  const w = S2.words[S2.i], a = w.a;
+  $('w2hint').innerHTML = '<span class="spin"></span> 分析中…';
+  try {
+    const r = await api(`/api/pron?type=word&kana=${encodeURIComponent(a.kana.join(''))}&levels=${a.levels.join(',')}&word=${encodeURIComponent(a.kanji)}`,
+      { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob });
+    S2.res = r; S2.combo = r.ok ? Math.min(3, S2.combo + 1) : 0;
+    (state.all ||= []).push(r); renderWord();
+  } catch (e) { $('w2hint').innerHTML = '<span style="color:var(--bad)">' + e.message + '</span>'; }
+}
+
+/* ===================== 記録 ===================== */
+const S4 = { range: 'all' };
+async function initRecord() {
+  // 難点音の推移 要用模式① 的分组，直接进記録时也得先拿到
+  if (!S1.groups.length) { try { S1.groups = (await api('/api/sounds')).groups; } catch (e) { S1.groups = []; } }
+  try { const j = await api('/api/records'); state.all = j.history; state.sum = j.summary; } catch (e) { state.all = state.all || []; }
+  renderRecord();
+}
+function renderRecord() {
+  const cut = S4.range === 'all' ? 0 : Date.now() / 1000 - (+S4.range) * 86400;
+  const all = (state.all || []).filter(x => (x.ts || 0) >= cut);
+  const sw = stableWords(), ss = {};
+  all.filter(x => x.type === 'sentence').forEach(x => { ss[x.ref] = x.corr >= LV().corr ? (ss[x.ref] || 0) + 1 : 0; });
+  $('railRecord').innerHTML = `<div class="sec-head"><div class="sec-title">期間</div></div>` +
+    [['7', '直近 7 日'], ['30', '直近 30 日'], ['all', 'すべて']].map(([k, n]) =>
+      `<div class="railrow ${S4.range === k ? 'on' : ''}" data-r="${k}"><span class="nm">${n}</span></div>`).join('') +
+    `<div style="border-top:1px solid var(--line-weak);margin-top:12px;padding-top:12px;display:flex;flex-direction:column;gap:8px">` +
+    [['総回数', all.length], ['安定した語', Object.values(sw).filter(v => v >= 3).length],
+     ['安定した文', Object.values(ss).filter(v => v >= 6).length]].map(([k, v]) =>
+      `<div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--ink4)">${k}</span>` +
+      `<b style="font-family:var(--mono);font-size:15px">${v}</b></div>`).join('') + '</div>';
+  $('railRecord').querySelectorAll('[data-r]').forEach(e => e.onclick = () => { S4.range = e.dataset.r; renderRecord(); });
+
+  const groups = S1.groups.length ? S1.groups : [];
+  const rows = groups.map(g => {
+    const v = all.filter(x => x.type === 'sound' && x.group === g.key).map(x => Math.round(x.confidence * 100));
+    const cur = v.length ? v[v.length - 1] : null, prev = v.length > 1 ? v[v.length - 2] : null;
+    const d = cur != null && prev != null ? cur - prev : null;
+    const col = cur == null ? 'var(--ink4)' : cur >= 60 ? 'var(--ok)' : 'var(--warn)';
+    return `<div class="recrow"><span>${g.name}</span><span>${v.length ? spark(v.slice(-14), 300, 34) : ''}</span>` +
+      `<span class="v" style="color:${col}">${cur == null ? '—' : cur + '%'}</span>` +
+      `<span class="d" style="color:${d == null ? 'var(--ink4)' : d >= 0 ? 'var(--ok)' : 'var(--bad)'}">${d == null ? '' : (d > 0 ? '+' : '') + d}</span></div>`;
+  }).join('');
+  const stable = [
+    ...Object.entries(sw).filter(([, v]) => v >= 3).map(([k]) => ({ t: 'word', c: k })),
+    ...Object.entries(ss).filter(([, v]) => v >= 6).map(([k]) => ({ t: 'sent', c: k.split('/').pop() })),
+  ];
+  $('panel-record').innerHTML =
+    `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline">
+       <b style="font-size:13px">難点音の推移</b><span class="sec-note">破線は 60% · 右端が最新</span></div>
+       <div style="margin-top:10px">${rows || '<div class="sec-note">还没有模式① 的记录</div>'}</div></div>
+     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline">
+       <b style="font-size:13px">安定した語・文</b><span class="sec-note">語＝走向 3 回連続 ／ 文＝形 ${LV().corr.toFixed(2)} が ${LV().combo} 回連続</span></div>
+       <div style="margin-top:10px;max-height:300px;overflow-y:auto" class="scroll">` +
+       (stable.length ? stable.map(s => `<div class="stabrow">` +
+          `<span class="tag" style="background:${s.t === 'word' ? 'rgba(42,120,214,.12)' : 'rgba(31,157,91,.12)'};color:${s.t === 'word' ? 'var(--sel)' : 'var(--ok)'}">${s.t === 'word' ? '語' : '文'}</span>` +
+          `<span class="c">${s.c}</span><span class="dt"></span><span class="k">安定</span></div>`).join('')
+        : '<div class="sec-note">还没有练稳的词或句</div>') + '</div></div>';
+}
+
+/* ===================== 目标调型 + 只改一件事（§4.3） ===================== */
+// 音高已相对各自中位数归一化，所以 0 就是高/低的分界
+const binLevels = (mora, key) => mora.map(m => m[key] == null ? null : (m[key] >= 0 ? 1 : 0));
+
+async function loadTarget(path) {
+  state.target = null; $('stairMain').hidden = true;
+  try {
+    const j = await api('/api/target?ref=' + encodeURIComponent(path));
+    if (j.kana && j.kana.length) { state.target = j; renderStair($('stairMain'), j); }
+  } catch (e) { /* 没做过按假名对齐就没有目标调型，静默隐藏 */ }
+}
+
+/* 挑选顺序（交接文档 §4.3 的表）：调型 > 幅度 > 速度。
+   同一条连着给两遍 → 换个说法更具体；连着四遍还不过 → 提议先去模式① 练那个音。 */
+function oneThing(r) {
+  const L = LV();
+  let bad = null;
+  if (r.mora && r.mora.length && state.target) {
+    const user = binLevels(r.mora, 'my_pitch'), tgt = state.target.levels;
+    let worst = -1, wi = -1;
+    r.mora.forEach((m, i) => {
+      if (tgt[i] == null || user[i] == null || user[i] === tgt[i]) return;
+      const dev = Math.abs(m.pitch_diff ?? 0);
+      if (dev > worst) { worst = dev; wi = i; }
+    });
+    if (wi >= 0) bad = { kind: 'pitch', i: wi, mora: r.mora[wi].mora, up: state.target.levels[wi] === 1 };
+  }
+  if (!bad && r.amp < L.ampLo) bad = { kind: 'amp' };
+  else if (!bad && (r.ratio < L.rLo || r.ratio > L.rHi)) bad = { kind: 'rate', slow: r.ratio > L.rHi };
+  if (!bad) return { ok: true };
+  const sig = bad.kind + (bad.mora || '');
+  state.oneRun = (state.oneSig === sig) ? state.oneRun + 1 : 1;
+  state.oneSig = sig;
+  return { ...bad, run: state.oneRun };
+}
+function renderOneThing(r) {
+  const v = $('verdict'), t = oneThing(r);
+  v.className = 'onething' + (t.ok ? ' ok' : '');
+  $('oneKick').textContent = t.ok ? T('oneOk') : T('oneKick');
+  const D2 = DYN[state.lang].one;
+  $('verdictTx').textContent =
+    t.ok ? D2.ok()
+    : t.kind === 'pitch' ? (t.run >= 2 ? D2.pitch2(t.mora, t.up) : D2.pitch(t.mora, t.up))
+    : t.kind === 'amp' ? (t.run >= 2 ? D2.amp2() : D2.amp())
+    : (t.run >= 2 ? D2.rate2(t.slow) : D2.rate(t.slow));
+  // 连着四遍还是同一条，且是单音问题 → 提议去模式① 练
+  const jump = !t.ok && t.kind === 'pitch' && t.run >= 4;
+  $('oneActs').hidden = !jump;
+  if (jump) $('oneJump').textContent = D2.jump(t.mora);
+}
+$('oneLater').onclick = () => { $('oneActs').hidden = true; };
+$('oneJump').onclick = () => setMode('sound');
+
+/* ===================== 目标台阶（§5.1） =====================
+   data = { kana:string[], levels:(0|1)[], user?:(0|1)[] }，1 = 高拍。
+   只有高/低两档；长音促音不额外分档（见交接文档 §8 待办）。 */
+function renderStair(el, d, opt = {}) {
+  const kana = d.kana || [], levels = d.levels || [], user = d.user || null;
+  const n = kana.length;
+  if (!n) { el.hidden = true; return; }
+  el.hidden = false;
+  const W = 420, slot = W / n, HI = 15, LO = 44;
+  const yOf = v => (v ? HI : LO);
+  const pts = (arr, dy) => arr.map((v, i) =>
+    `${(i * slot).toFixed(1)},${yOf(v) + dy} ${((i + 1) * slot).toFixed(1)},${yOf(v) + dy}`).join(' ');
+  const wrong = i => user && user[i] != null && user[i] !== levels[i];
+  const done = !!user;
+  const small = opt.small != null ? opt.small : n >= 11;   // 长句用小号，否则假名会挤
+  el.className = 'stair' + (small ? ' small' : '');
+
+  const bands = !done ? '' : levels.map((_, i) => wrong(i)
+    ? `<rect x="${(i * slot).toFixed(1)}" y="6" width="${slot.toFixed(1)}" height="52" rx="4" fill="rgba(214,74,58,.09)"/>` : '').join('');
+  const svg =
+    `<svg viewBox="0 0 ${W} 58" preserveAspectRatio="none" aria-hidden="true">` + bands +
+    `<line x1="0" y1="${HI}" x2="${W}" y2="${HI}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
+    `<line x1="0" y1="${LO}" x2="${W}" y2="${LO}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
+    `<polyline points="${pts(levels, 0)}" fill="none" stroke="#2a78d6" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" opacity="${done ? .4 : 1}"/>` +
+    (done ? `<polyline points="${pts(user.map((v, i) => v == null ? levels[i] : v), 3)}" fill="none" stroke="#d64a3a" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/>` : '') +
+    `</svg>`;
+  const row = `<div class="kn" style="grid-template-columns:repeat(${n},minmax(0,1fr))">` +
+    kana.map((k, i) => `<span class="${k.length > 1 ? 'dbl' : ''}${wrong(i) ? ' bad' : ''}">${k}</span>`).join('') + '</div>';
+  const lg = done ? `<div class="lg"><span><i style="background:#2a78d6"></i>${T('stTarget')}</span><span><i style="background:#d64a3a"></i>${T('stYou')}</span></div>` : '';
+  el.innerHTML =
+    `<div class="hd"><b>${done ? T('stTitleDone') : T('stTitle')}</b><span>${T('stHint')}</span></div>` + lg + svg + row;
+}
 
 /* ===================== 音高曲线 ===================== */
 function drawPitch(r) {
@@ -1173,7 +1755,7 @@ function drawKana(ctx, r, X, Y, col, W, H) {
     const tt = (m.ref_start + m.ref_end) / 2, d = m.pitch_diff;
     const rv = refAt(tt); if (rv == null) return;
     const color = d < -0.5 ? col('--ref') : d > 0.5 ? col('--mine') : col('--ink3');
-    const fill  = d < -0.5 ? 'rgba(106,169,255,.14)' : d > 0.5 ? 'rgba(255,122,107,.14)' : 'rgba(138,151,168,.12)';
+    const fill  = d < -0.5 ? 'rgba(42,120,214,.10)' : d > 0.5 ? 'rgba(214,74,58,.10)' : 'rgba(0,0,0,.06)';
     const bw = m.mora.length > 1 ? 52 : 44, bh = 30, rr = 7;
     const x = Math.max(46 + bw / 2, Math.min(W - 6 - bw / 2, X(tt)));
     const below = d < 0;                       // 读低了 → 标签放曲线下方
@@ -1225,8 +1807,10 @@ function renderHistory() {
 }
 
 setLevel(state.level);
+setMode(state.mode);
 if (localStorage.getItem('rail') === 'mini') document.querySelector('.grid').classList.add('mini');
 applyLang();
+api('/api/records').then(j => { state.all = j.history; }).catch(() => { state.all = []; });
 loadAll().catch(e => alert('连不上本地服务: ' + e.message));
 </script>
 </body>

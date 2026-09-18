@@ -20,3 +20,4 @@ history.jsonl
 
 # README 里的截图要能提交
 !docs/*.png
+baseline.json
