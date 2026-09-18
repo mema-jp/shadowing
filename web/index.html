@@ -176,6 +176,7 @@ textarea{width:100%;resize:vertical}
 .rec-sub{font-size:12px;color:var(--ink4);max-width:320px;text-align:center}
 .rec-sub .err{color:var(--bad)}
 .combo{display:flex;align-items:center;gap:6px}
+.combo .dots{display:flex;gap:6px}
 .combo i{width:16px;height:16px;border-radius:5px;background:var(--bg-card2);border:1px solid var(--bd-btn)}
 .combo i.on{background:var(--ok);border-color:var(--ok)}
 .combo .n{margin-left:4px;font-size:12px;color:var(--ink3)}
@@ -292,6 +293,12 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
       <span class="vline"></span>
       <span><span data-t="takes">录音</span> <b id="statTakes">0</b></span>
       <span class="vline"></span>
+      <span class="langsw" id="levelSw">
+        <button data-lv="easy" data-t="lvEasy">入门</button>
+        <button data-lv="normal" data-t="lvNormal">标准</button>
+        <button data-lv="hard" data-t="lvHard">严格</button>
+      </span>
+      <span class="vline"></span>
       <span class="langsw"><button id="langZh" class="on">中文</button><button id="langJa">日本語</button></span>
       <button id="quitBtn" class="ghost" hidden data-t="quit">退出程序</button>
     </div>
@@ -396,13 +403,13 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
         <div class="rec-main" id="recHint" data-t="pickFirstHint">先在左边选一句参考</div>
         <div class="rec-sub" id="recSub" data-t="recHint">可以连读三四遍再停，会自动挑最好的一遍。</div>
         <div class="combo" id="combo" hidden>
-          <i></i><i></i><i></i><i></i><i></i><i></i>
-          <span class="n" id="comboN">0 / 6</span>
+          <span class="dots" id="comboDots"></span>
+          <span class="n" id="comboN"></span>
         </div>
       </div>
 
       <div class="histcard" id="history" hidden>
-        <div class="hd"><b data-t="history">这句的记录</b><span data-t="trendNote">达标线 0.90</span></div>
+        <div class="hd"><b data-t="history">这句的记录</b><span id="trendNote"></span></div>
         <div class="rows scroll" id="histBody"></div>
       </div>
     </section>
@@ -419,13 +426,13 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
 
         <div class="metrics" style="margin-top:16px">
           <div class="metric"><div class="k" data-t="mShape">形状（相关）</div>
-            <div class="row"><div class="v" id="mCorr">–</div><div class="goal">/ 0.90</div></div>
+            <div class="row"><div class="v" id="mCorr">–</div><div class="goal" id="goalCorr">/ 0.82</div></div>
             <div class="bar"><i id="bCorr"></i></div><div class="d" id="dCorr"></div></div>
           <div class="metric"><div class="k" data-t="mAmp">幅度（比播音员）</div>
-            <div class="row"><div class="v" id="mAmp">–</div><div class="goal">/ 80%</div></div>
+            <div class="row"><div class="v" id="mAmp">–</div><div class="goal" id="goalAmp">/ 58%</div></div>
             <div class="bar"><i id="bAmp"></i></div><div class="d" id="dAmp"></div></div>
           <div class="metric"><div class="k" data-t="mRate">速度（时长比）</div>
-            <div class="row"><div class="v" id="mRatio">–</div><div class="goal">/ 1.0×</div></div>
+            <div class="row"><div class="v" id="mRatio">–</div><div class="goal" id="goalRatio">/ 1.0×</div></div>
             <div class="bar"><i id="bRatio"></i></div><div class="d" id="dRatio"></div></div>
         </div>
 
@@ -451,8 +458,8 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
 
       <div class="cleared" id="cleared" hidden>
         <div class="hd"><div class="badge">✓</div><h3 data-t="clearedTitle">这句练稳了</h3></div>
-        <p data-t="clearedBody">形状分连续 6 次在 0.90 以上，幅度和速度也在范围内。可以换下一句了。</p>
-        <div class="combo"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        <p id="clearedBody"></p>
+        <div class="combo"><span class="dots" id="clearedDots"></span></div>
         <div class="metrics" id="clearedMetrics"></div>
         <div class="acts">
           <button class="go" id="nextBtn" data-t="nextSentence">练下一句 →</button>
@@ -469,7 +476,8 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
 <script>
 const $ = id => document.getElementById(id);
 const state = { news: [], segments: [], article: null, ref: null, rec: null, chunks: [], history: {},
-                combo: 0, kanaAll: false, lang: localStorage.getItem('lang') || 'zh' };
+                combo: 0, kanaAll: false, lang: localStorage.getItem('lang') || 'zh',
+                level: localStorage.getItem('level') || 'normal' };
 
 /* ===================== i18n ===================== */
 const STR = {
@@ -479,6 +487,7 @@ const STR = {
     chunks:"切出来的句子", chunkNote:"1–3 秒的最好练。带 ⚠ 的偏长，可以先在手动截取里切短。",
     aligned:"已按假名对齐", alignDo:"按假名对齐这篇", ruby:"显示注音", rubyOff:"隐藏注音",
     source:"素材", collapse:"收起", expand:"展开", addSource:"加素材",
+    lvEasy:"入门", lvNormal:"标准", lvHard:"严格",
     bodyTitle:"本文", bodyFoot:"绿色底是正在练的那一句，点正文里的任意一句也能切过去。",
     manual:"手动截取一段", markStart:"起点=现在", markEnd:"终点=现在", preview:"试听这段", useIt:"用这段",
     manualNote:"用上面「这篇的正文」里的播放器定位：放到句首点起点，句尾点终点。",
@@ -505,6 +514,7 @@ const STR = {
     chunks:"区切られた文", chunkNote:"1〜3 秒がいちばん練習しやすい。⚠ は長いので手動で短く切ってもよい。",
     aligned:"仮名で整列済み", alignDo:"この記事を仮名で整列", ruby:"ふりがな", rubyOff:"ふりがなを隠す",
     source:"素材", collapse:"折りたたむ", expand:"開く", addSource:"素材を追加",
+    lvEasy:"やさしい", lvNormal:"ふつう", lvHard:"きびしい",
     bodyTitle:"本文", bodyFoot:"緑の背景が今練習している文です。本文中のどの文をクリックしても切り替えられます。",
     manual:"手動で切り出す", markStart:"開始=現在", markEnd:"終了=現在", preview:"試聴", useIt:"これを使う",
     manualNote:"「本文」のプレーヤーで位置を合わせ、文頭で開始、文末で終了を押します。",
@@ -538,6 +548,8 @@ const DYN = {
     aSpan:(r,m)=>`播音员起伏 ${r} 半音，你 ${m} 半音`, aSmall:'，起伏太小', aBig:'，过头了',
     rSlow:p=>`慢了 ${p}%`, rABit:'略慢', rShort:'太短：只读了一部分？', rFast:'读得太快', rOk:'速度合适',
     takes:(n,a,b)=>`本次 ${n} 遍，取最好的一遍（${a}–${b}s）。`,
+    trendNote:c=>`达标线 ${c}`,
+    clearedBody:(n,c)=>`形状分连续 ${n} 次在 ${c} 以上，幅度和速度也在范围内。可以换下一句了。`,
     tooLong:s=>`这句 ${s} 秒，偏长，建议切短`,
     mLead:' 具体是：', mHigh:n=>`高了 ${n} 个半音`, mLow:n=>`低了 ${n} 个半音`,
     mShort:'太短', mLong:'拖长了', mSep:'；', mQuote:(k,p)=>`「${k}」${p}`, mEnd:'。'
@@ -552,6 +564,8 @@ const DYN = {
     aSpan:(r,m)=>`アナウンサー ${r} 半音、あなた ${m} 半音`, aSmall:'、抑揚が小さすぎます', aBig:'、大きすぎます',
     rSlow:p=>`${p}% 遅いです`, rABit:'やや遅い', rShort:'短すぎます：一部しか読んでいませんか？', rFast:'速すぎます', rOk:'ちょうど良い速さ',
     takes:(n,a,b)=>`今回 ${n} テイク、最良のもの（${a}–${b}s）を採用。`,
+    trendNote:c=>`目標 ${c}`,
+    clearedBody:(n,c)=>`形のスコアが ${n} 回連続で ${c} 以上。幅と速さも範囲内です。次の文に進めます。`,
     tooLong:s=>`この文は ${s} 秒と長めです。短く切ることをおすすめします`,
     mLead:' 内訳：', mHigh:n=>`${n} 半音高い`, mLow:n=>`${n} 半音低い`,
     mShort:'短すぎ', mLong:'長すぎ', mSep:'／', mQuote:(k,p)=>`「${k}」は${p}`, mEnd:'。'
@@ -566,6 +580,8 @@ function applyLang() {
   $('langJa').classList.toggle('on', state.lang === 'ja');
   $('kanaToggle').textContent = state.kanaAll ? T('kanaOn') : T('kanaOff');
   $('rubyBtn').textContent = rubyOn ? T('ruby') : T('rubyOff');
+  $('trendNote').textContent = D('trendNote')(LV().corr.toFixed(2));
+  renderCombo();
   $('railCollapse').title = T('collapse'); $('railExpand').title = T('expand'); $('railAdd').title = T('addSource');
   renderSegs(); renderHistory(); renderSteps();
   if (!$('chunksBlock').hidden) renderChunks(true);
@@ -686,6 +702,10 @@ function playRange(a, b, rowEl) {
   aa.addEventListener('timeupdate', stop);
 }
 async function saveSegment(a, b) {
+  // 同一段已经截过就直接切过去，别再切一份（否则同一句点几次就多几个重复参考句）
+  const dup = state.segments.find(s => s.src === state.article.mp3 &&
+    Math.abs(s.start - a) < 0.01 && Math.abs(s.end - b) < 0.01);
+  if (dup) return useRef(dup.path);
   const i = state.chunks.findIndex(c => c[0] === a && c[1] === b);
   const txt = state.chunkTexts && i >= 0 ? state.chunkTexts[i] : '';
   const label = txt ? txt : `${state.article.title} ${a.toFixed(1)}–${b.toFixed(1)}s`;
@@ -738,15 +758,29 @@ function renderArticle() {
   });
   highlightSentence();
 }
-function highlightSentence() {
-  const el = $('articleText'); if (!el || !state.sentSpans) return;
+/* 正在练的是不是正文里的某一句。两个前提：
+   1) 这段必须来自当前打开的这篇文章（否则换一篇会亮一句无关的）
+   2) 手动截的范围常常跨句或只截半句，对不上就不高亮，别硬指一句 */
+function refMatchesArticle() {
   const r = state.ref;
+  return !!(r && r.start != null && state.article && r.src && r.src === state.article.mp3);
+}
+function currentSentence() {
+  if (!refMatchesArticle() || !state.sentSpans) return -1;
+  const r = state.ref, refLen = r.end - r.start;
   let best = -1, bestOv = 0;
-  if (r && r.start != null) state.sentSpans.forEach((sp, i) => {
+  state.sentSpans.forEach((sp, i) => {
     if (!sp) return;
     const ov = Math.min(sp[1], r.end) - Math.max(sp[0], r.start);
+    if (ov <= 0) return;
+    if (ov < refLen * 0.6 || ov < (sp[1] - sp[0]) * 0.4) return;   // 覆盖不够就不认
     if (ov > bestOv) { bestOv = ov; best = i; }
   });
+  return best;
+}
+function highlightSentence() {
+  const el = $('articleText'); if (!el || !state.sentSpans) return;
+  const best = currentSentence();
   el.querySelectorAll('.sent').forEach(sp => sp.classList.toggle('cur', +sp.dataset.i === best));
   const node = best >= 0 && el.querySelector(`.sent[data-i="${best}"]`);
   if (node) el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight,   // 按容器 scrollTop 算，不用 scrollIntoView
@@ -756,6 +790,8 @@ $('rubyBtn').onclick = () => {
   rubyOn = !rubyOn;
   $('bodyCard').classList.toggle('noruby', !rubyOn);
   $('rubyBtn').textContent = rubyOn ? T('ruby') : T('rubyOff');
+  $('trendNote').textContent = D('trendNote')(LV().corr.toFixed(2));
+  renderCombo();
   $('railCollapse').title = T('collapse'); $('railExpand').title = T('expand'); $('railAdd').title = T('addSource');
 };
 $('quitBtn').onclick = async () => { if (confirm('退出？')) { await fetch('/api/quit', {method:'POST'}); document.body.innerHTML = '<p style="padding:40px;color:#66707C">已退出，可以关闭这个标签页。</p>'; } };
@@ -804,7 +840,7 @@ function renderMini() {
     : state.segments.map((s, i) => ({ n: i + 1, title: segTitle(s), go: () => useRef(s.path), path: s.path }));
   let cur = -1;
   const r = state.ref;
-  if (useChunks && r && r.start != null) {           // 当前句 = 和正在练的时间段重叠最多的那段
+  if (useChunks && refMatchesArticle()) {            // 当前句 = 和正在练的时间段重叠最多的那段
     let best = 0;
     items.forEach((it, i) => { const ov = Math.min(it.b, r.end) - Math.max(it.a, r.start); if (ov > best) { best = ov; cur = i; } });
   } else if (!useChunks && r) {
@@ -936,21 +972,45 @@ async function sendRecording(blob) {
 }
 
 /* ===================== 达标（连击） ===================== */
-const GREEN = r => r.corr >= 0.90 && r.amp >= 0.80 && r.amp <= 1.60 && r.ratio >= 0.85 && r.ratio <= 1.15;
+/* 难易度：只改界面上的目标线和达标判定，不碰后端算法和 compare_pitch 的阈值。
+   数值是拿作者 190 次真实录音标定的——单次达标率约 58% / 26% / 8%。 */
+const LEVELS = {
+  easy:   { corr: 0.75, ampLo: 0.45, ampHi: 1.80, rLo: 0.70, rHi: 1.45, combo: 2 },
+  normal: { corr: 0.82, ampLo: 0.58, ampHi: 1.70, rLo: 0.78, rHi: 1.30, combo: 3 },
+  hard:   { corr: 0.88, ampLo: 0.68, ampHi: 1.60, rLo: 0.84, rHi: 1.22, combo: 4 },
+};
+const LV = () => LEVELS[state.level] || LEVELS.normal;
+const GREEN = r => { const L = LV(); return r.corr >= L.corr && r.amp >= L.ampLo && r.amp <= L.ampHi && r.ratio >= L.rLo && r.ratio <= L.rHi; };
+function setLevel(k) {
+  state.level = k; localStorage.setItem('level', k); state.combo = 0;
+  $('levelSw').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.lv === k));
+  $('trendNote').textContent = D('trendNote')(LV().corr.toFixed(2));
+  renderCombo(); renderHistory();
+  if (lastResult && !$('result').hidden) showResult(lastResult, true);
+  $('cleared').hidden = true; renderSteps();
+}
+$('levelSw').querySelectorAll('button').forEach(b => b.onclick = () => setLevel(b.dataset.lv));
 function bumpCombo(r) {
-  state.combo = GREEN(r) ? Math.min(6, state.combo + 1) : 0;
+  const need = LV().combo;
+  state.combo = GREEN(r) ? Math.min(need, state.combo + 1) : 0;
   renderCombo();
-  if (state.combo >= 6) showCleared(r);
+  if (state.combo >= need) showCleared(r);
+}
+function dots(el, n, on) {
+  el.innerHTML = '';
+  for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (i < on) d.className = 'on'; el.appendChild(d); }
 }
 function renderCombo() {
-  const dots = $('combo').querySelectorAll('i');
-  dots.forEach((d, i) => d.classList.toggle('on', i < state.combo));
-  $('comboN').textContent = state.combo + ' / 6';
+  const need = LV().combo;
+  dots($('comboDots'), need, state.combo);
+  $('comboN').textContent = state.combo + ' / ' + need;
 }
 function showCleared(r) {
   $('clearedMetrics').innerHTML = [
     ['mShape', r.corr.toFixed(2)], ['mAmp', Math.round(r.amp * 100) + '%'], ['mRate', r.ratio.toFixed(2) + '×']
   ].map(([k, v]) => `<div class="metric"><div class="k">${T(k)}</div><div class="row"><div class="v">${v}</div></div></div>`).join('');
+  dots($('clearedDots'), LV().combo, LV().combo);
+  $('clearedBody').textContent = D('clearedBody')(LV().combo, LV().corr.toFixed(2));
   $('cleared').hidden = false; $('result').hidden = true; $('fbEmpty').hidden = true;
   renderSteps();
 }
@@ -971,9 +1031,13 @@ function showResult(r, keepCombo) {
   $('takeStamp').textContent = 'take ' + ((state.history[state.ref?.path] || []).length || 1) + ' · ' + (r.at || '').slice(11);
 
   // —— 颜色规则按设计稿；后端的 ok 判定（0.80 / 0.6–1.6 / 0.75–1.35）仍用于评语
-  const cShape = r.corr >= 0.90 ? 'var(--ok)' : r.corr >= 0.75 ? 'var(--warn)' : 'var(--bad)';
-  const cAmp   = (r.amp >= 0.80 && r.amp <= 1.60) ? 'var(--ok)' : r.amp >= 0.60 ? 'var(--warn)' : 'var(--bad)';
-  const cRate  = (r.ratio >= 0.85 && r.ratio <= 1.15) ? 'var(--ok)' : (r.ratio >= 0.70 && r.ratio <= 1.30) ? 'var(--warn)' : 'var(--bad)';
+  const L = LV();
+  const cShape = r.corr >= L.corr ? 'var(--ok)' : r.corr >= L.corr - 0.12 ? 'var(--warn)' : 'var(--bad)';
+  const cAmp   = (r.amp >= L.ampLo && r.amp <= L.ampHi) ? 'var(--ok)' : r.amp >= L.ampLo * 0.75 ? 'var(--warn)' : 'var(--bad)';
+  const cRate  = (r.ratio >= L.rLo && r.ratio <= L.rHi) ? 'var(--ok)' : (r.ratio >= L.rLo - 0.15 && r.ratio <= L.rHi + 0.15) ? 'var(--warn)' : 'var(--bad)';
+  $('goalCorr').textContent = '/ ' + L.corr.toFixed(2);
+  $('goalAmp').textContent = '/ ' + Math.round(L.ampLo * 100) + '%';
+  $('goalRatio').textContent = '/ 1.0×';
   const set = (vId, bId, txt, color, w) => {
     $(vId).textContent = txt; $(vId).style.color = color;
     $(bId).style.background = color; $(bId).style.width = Math.max(0, Math.min(100, w)) + '%';
@@ -1026,6 +1090,8 @@ $('kanaToggle').onclick = () => {
   state.kanaAll = !state.kanaAll;
   $('kanaToggle').textContent = state.kanaAll ? T('kanaOn') : T('kanaOff');
   $('rubyBtn').textContent = rubyOn ? T('ruby') : T('rubyOff');
+  $('trendNote').textContent = D('trendNote')(LV().corr.toFixed(2));
+  renderCombo();
   $('railCollapse').title = T('collapse'); $('railExpand').title = T('expand'); $('railAdd').title = T('addSource');
   $('kanaToggle').style.background = state.kanaAll ? 'var(--bg-card2)' : 'transparent';
   if (lastResult) drawPitch(lastResult);
@@ -1148,7 +1214,7 @@ function renderHistory() {
   if (!h.length) return;
   const rows = h.map((x, i) => ({ x, i })).reverse();     // 最新在上
   $('histBody').innerHTML = rows.map(({ x, i }, k) => {
-    const ok = x.corr >= 0.90;
+    const ok = x.corr >= LV().corr;   // 这一行显示的是形状分，就按形状分的达标线着色
     return `<div class="hrow ${k === 0 ? 'latest' : ''}" data-i="${i}">` +
       `<div class="i">${i + 1}</div><div class="tm">${(x.at || '').slice(11)}</div>` +
       `<div class="bar"><i class="${ok ? 'ok' : ''}" style="width:${Math.min(100, x.corr * 100)}%"></i></div>` +
@@ -1157,6 +1223,7 @@ function renderHistory() {
   $('histBody').querySelectorAll('.hrow').forEach(tr => tr.onclick = () => showResult(h[+tr.dataset.i], true));
 }
 
+setLevel(state.level);
 if (localStorage.getItem('rail') === 'mini') document.querySelector('.grid').classList.add('mini');
 applyLang();
 loadAll().catch(e => alert('连不上本地服务: ' + e.message));
