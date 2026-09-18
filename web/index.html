@@ -379,9 +379,17 @@ $('saveSeg').onclick = () => {
 
 // ---------- 参考句列表 ----------
 function segTitle(s) { return s.label || (s.tts ? '（朗读）' : s.name); }
+function clearRef() {  // 删掉的正好是正在练的那句：右栏也要退回初始状态，否则录音键还指着已经不存在的文件
+  state.ref = null;
+  $('refName').textContent = '先在左边选一句参考';
+  const ra = $('refAudio'); ra.pause(); ra.removeAttribute('src');
+  $('recBtn').disabled = true;
+  $('result').hidden = true;
+  $('history').hidden = true;
+}
 function renderSegs() {
   const el = $('segList');
-  if (!state.segments.length) return;
+  if (!state.segments.length) { el.innerHTML = '<div class="empty">还没有。从上面的正文里截一句，或在下面用系统朗读生成。</div>'; return; }
   el.innerHTML = '';
   state.segments.forEach(s => {
     const d = document.createElement('div');
@@ -389,7 +397,7 @@ function renderSegs() {
     const extra = s.start != null ? `${s.start.toFixed(1)}–${s.end.toFixed(1)}s` : (s.tts ? '朗读' : '');
     d.innerHTML = `<span class="label">${segTitle(s)}</span><span class="small muted">${extra}</span><button class="x" title="删除">×</button>`;
     d.onclick = e => { if (e.target.classList.contains('x')) return; useRef(s.path); };
-    d.querySelector('.x').onclick = async () => { if (confirm('删除这句参考？')) { await api('/api/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: s.path})}); if (state.ref && state.ref.path === s.path) state.ref = null; await loadAll(); } };
+    d.querySelector('.x').onclick = async () => { if (confirm('删除这句参考？')) { await api('/api/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: s.path})}); if (state.ref && state.ref.path === s.path) clearRef(); await loadAll(); } };
     el.appendChild(d);
   });
 }
