@@ -14,9 +14,7 @@ which mora you pitched too high or held too short. Nothing leaves your machine.
 
 这个工具就做一件事：把播音员的音高曲线和你的音高曲线叠在一起，告诉你**哪个位置该升没升、该降没降**。
 
-<!-- TODO(作者)：补一张界面截图，存成 docs/screenshot.png，然后把下面这行的注释去掉：
 ![界面截图](docs/screenshot.png)
--->
 
 一次练习大概是这样：
 
