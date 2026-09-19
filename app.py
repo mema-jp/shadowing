@@ -46,6 +46,7 @@ os.chdir(ROOT)
 sys.path.insert(0, CODE)
 import compare_pitch  # noqa: E402
 import align_mora  # noqa: E402
+import accent  # noqa: E402
 
 PORT = 8765
 for d in ("news", "segments", "recordings", "results", "refs"):
@@ -91,32 +92,40 @@ def article_alignment(mp3: str):
 def target_levels(ref: str) -> dict:
     """参考句的目标调型（高/低两档），给「目标台阶」用。
 
-    取整篇对齐结果里落在这一句的拍，按播音员实测音高逐拍二值化：音高在整句中位数
-    以上记为高拍。音高已相对各自中位数归一化，所以 0 就是分界线。
-    需要这篇文章先做过按假名对齐；没有就返回空，前端隐藏台阶。
+    调型来自 OpenJTalk 内置的调型词典（见 accent.py），不是从录音音高猜的——
+    猜出来的是句子整体下降调，不等于词本身的调型。
+    词典的拍序列和对齐模型的拍序列记法不同，靠 accent.align_to 归一化后对位，
+    对不上的拍返回 None，前端应当留空而不是瞎画（实测覆盖率约 89%）。
+
+    需要这篇文章先做过按假名对齐，且装了 pyopenjtalk；缺任一个就返回空。
     """
-    empty = {"kana": [], "levels": []}
+    empty = {"kana": [], "levels": [], "source": None}
     meta = ref + ".json"
-    if not os.path.exists(meta):
+    if not os.path.exists(meta) or not accent.available():
         return empty
     info = json.load(open(meta, encoding="utf-8"))
     if not info.get("src") or info.get("end") is None:
         return empty
-    al = article_alignment(safe(info["src"]))
+    src = safe(info["src"])
+    al = article_alignment(src)
     if not al:
         return empty
-    mora = align_mora.mora_in_range(al, info["start"], info["end"])
-    if not mora:
+    txt = src[:-4] + ".txt"
+    if not os.path.exists(txt):
         return empty
-    import numpy as np
-    (rt, rp, _rdb, (ra, _rb)), _gap = compare_pitch.reference_contour(ref)
+    with open(txt, encoding="utf-8") as f:
+        body = "".join(f.read().split("\n")[2:])      # 去掉标题、链接
+    all_levels = accent.align_to([m["mora"] for m in al], body)
+    a, b = info["start"], info["end"]
     kana, levels = [], []
-    for m in mora:
-        a, b = m["start"] - ra, m["end"] - ra      # 对齐结果相对句首，曲线相对检测到的语音起点
-        sel = (rt >= a) & (rt <= b) & ~np.isnan(rp)
-        kana.append(m["mora"])
-        levels.append(int(np.mean(rp[sel]) >= 0) if sel.any() else None)
-    return {"kana": kana, "levels": levels}
+    for i, m in enumerate(al):
+        mid = (m["start"] + m["end"]) / 2
+        if a <= mid <= b:
+            kana.append(m["mora"])
+            levels.append(all_levels[i])
+    if not kana:
+        return empty
+    return {"kana": kana, "levels": levels, "source": "dict"}
 
 
 def analyze_pron(wav: str, kana: str) -> dict:
@@ -160,7 +169,46 @@ SAY_LOCK = threading.Lock()
 MIN_WAV = 1000          # 16k 单声道 16bit：小于这个长度说明 say 没真的出声（空文件只有 78 字节的头）
 
 
-def say_ref(text: str, voice: str = "Kyoko", rate: int = 170, tempo: float = 1.0, pad: float = 0.0) -> str:
+# 实测排名（10 组最小对的调型正确率 / 平均高低差）：
+# Flo 10/10 4.25 · Eddy 10/10 3.71 · Shelley 10/10 3.44 · Grandma 10/10 3.07 · Kyoko 7/10 1.84
+VOICE_RANK = ["Flo", "Eddy", "Shelley", "Grandma", "Reed", "Grandpa", "Kyoko"]
+_default_voice = None
+
+
+def default_voice() -> str:
+    """挑一个本机真实装了的日语声音。
+
+    不能写死：`say -v <没装的声音>` 不会报错，会静默退回系统默认，
+    用户以为在听 Flo，其实听的是别的。
+    """
+    global _default_voice
+    if _default_voice is None:
+        have = ja_voices()
+        _default_voice = have[0] if have else "Kyoko"
+    return _default_voice
+
+
+def ja_voices() -> list:
+    """本机实际可用的日语声音。前端据此渲染下拉框，避免选到不存在的声音后静默退回。
+
+    顺序按实测：拿 10 组最小对量「调型是否正确、高低差多大」，Flo 10/10 / 4.25 半音最好，
+    Kyoko 只有 7/10 / 1.84。名字不在这份榜单里的排在后面。
+    """
+    ranked = ["Flo", "Eddy", "Shelley", "Grandma", "Reed", "Grandpa", "Kyoko"]
+    try:
+        out = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=10).stdout
+    except Exception:
+        return []
+    have = []
+    for line in out.splitlines():
+        if "ja_JP" in line:
+            name = line.split()[0]
+            if name not in have:
+                have.append(name)
+    return sorted(have, key=lambda v: ranked.index(v) if v in ranked else len(ranked))
+
+
+def say_ref(text: str, voice: str = "", rate: int = 170, tempo: float = 1.0, pad: float = 0.0) -> str:
     """模式① / ② 的参考音：系统朗读，按内容缓存，不往 segments/ 里堆文件。
 
     单个假名合成出来只有 0.3 秒左右（rate 调再慢也几乎不变），播放时开头还容易被吃掉，
@@ -172,6 +220,7 @@ def say_ref(text: str, voice: str = "Kyoko", rate: int = 170, tempo: float = 1.0
     更糟的是会把零采样的空 wav 留在缓存里，之后每次命中缓存都失败且不会自愈。
     """
     import hashlib
+    voice = voice or default_voice()
     os.makedirs("refs", exist_ok=True)
     tempo = min(2.0, max(0.5, float(tempo)))        # atempo 的有效下限就是 0.5
     pad = min(1.0, max(0.0, float(pad)))
@@ -230,7 +279,8 @@ def baseline_conf(kana: str) -> float:
             return json.load(open(BASELINE_FILE, encoding="utf-8"))
         except json.JSONDecodeError:
             return {}
-    cached = load().get(kana)
+    key = f"{kana}|{default_voice()}"
+    cached = load().get(key)
     if cached is not None:
         return cached
     import numpy as np
@@ -238,7 +288,7 @@ def baseline_conf(kana: str) -> float:
     v = round(float(np.mean([m["score"] for m in res])), 3)
     with BASELINE_LOCK:                     # 读-改-写，并发时不能丢别人刚写的音
         cache = load()
-        cache[kana] = v
+        cache[key] = v
         with open(BASELINE_FILE, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False)
     return v
@@ -305,18 +355,30 @@ def gojuon():
 
 # ---------------------------------------------------------------- 内置词表 / 难点音
 # 最小对：levels 里 1 = 高拍。声调随程序打包，不联网查辞典。
-WORDS = [
-    {"a": {"kanji": "橋", "kana": ["は", "し"], "levels": [0, 1], "gloss": "桥"},
-     "b": {"kanji": "箸", "kana": ["は", "し"], "levels": [1, 0], "gloss": "筷子"}},
-    {"a": {"kanji": "雨", "kana": ["あ", "め"], "levels": [1, 0], "gloss": "雨"},
-     "b": {"kanji": "飴", "kana": ["あ", "め"], "levels": [0, 1], "gloss": "糖"}},
-    {"a": {"kanji": "神", "kana": ["か", "み"], "levels": [1, 0], "gloss": "神"},
-     "b": {"kanji": "紙", "kana": ["か", "み"], "levels": [0, 1], "gloss": "纸"}},
-    {"a": {"kanji": "酒", "kana": ["さ", "け"], "levels": [0, 1], "gloss": "酒"},
-     "b": {"kanji": "鮭", "kana": ["さ", "け"], "levels": [1, 0], "gloss": "鲑鱼"}},
-    {"a": {"kanji": "今", "kana": ["い", "ま"], "levels": [1, 0], "gloss": "现在"},
-     "b": {"kanji": "居間", "kana": ["い", "ま"], "levels": [0, 1], "gloss": "起居室"}},
+# 最小对：只记「练哪些词」，读音和调型一律查词典（accent.py），不手写。
+# 手写的那份实测和词典 10/10 一致，但没有维护第二份真相的理由。
+WORD_PAIRS = [
+    ("橋", "桥", "箸", "筷子"),
+    ("雨", "雨", "飴", "糖"),
+    ("神", "神", "紙", "纸"),
+    ("酒", "酒", "鮭", "鲑鱼"),
+    ("今", "现在", "居間", "起居室"),
 ]
+
+
+def wordlist() -> list:
+    """→ [{a:{kanji,kana,levels,gloss}, b:{...}}]，调型现查。没装 pyopenjtalk 就返回空。"""
+    if not accent.available():
+        return []
+    out = []
+    for ak, ag, bk, bg in WORD_PAIRS:
+        side = {}
+        for key, kanji, gloss in (("a", ak, ag), ("b", bk, bg)):
+            moras, levels = accent.levels(kanji)
+            side[key] = {"kanji": kanji, "kana": moras, "levels": levels, "gloss": gloss}
+        out.append(side)
+    return out
+
 
 # 难点音：按中国语话者的绊倒顺序分组，不是五十音顺。
 # 注意：发音要点和例词是交接文档作者写的占位内容，上线前需要母语者过一遍（交接文档 §8 第 1 条）。
@@ -383,6 +445,82 @@ def history_summary() -> dict:
             "ok": sum(1 for e in h if e.get("ok"))}
 
 
+
+# 录音留存：每个练习对象只留「最好 1 条 + 最近 3 条」，其余连同对比图一起删。
+# 分数永远留在 history.jsonl（它很小），删的只是音频和图。
+RETAIN_BEST = 1
+RETAIN_RECENT = 3
+
+
+def _target_of(e: dict):
+    """这条记录属于哪个练习对象。"""
+    t = e.get("type")
+    if t == "word":
+        return ("word", e.get("word"))
+    if t == "sound":
+        return ("sound", e.get("kana_text"))
+    return ("sentence", e.get("ref"))
+
+
+def _quality_of(e: dict) -> float:
+    """「最好」按各模式自己的主指标：句子看形状、单词看高低差、单音看确信度。"""
+    t = e.get("type")
+    if t == "word":
+        return (e.get("fit") or {}).get("sep") or -99.0
+    if t == "sound":
+        return e.get("confidence") or 0.0
+    return e.get("corr") or 0.0
+
+
+def drop_media(target) -> int:
+    """删掉某个练习对象的全部录音和对比图。分数留在 history.jsonl 里不动。
+
+    参考句被删掉之后，练它的录音在界面上就再也点不到了，留着只占地方。
+    """
+    removed = 0
+    for e in history_read():
+        if _target_of(e) != target:
+            continue
+        for f in (e.get("recording"), e.get("png")):
+            if f:
+                try:
+                    os.remove(safe(f))
+                    removed += 1
+                except (OSError, PermissionError):
+                    pass
+    return removed
+
+
+def prune_recordings(target=None) -> int:
+    """删掉超出保留策略的录音和对比图，返回删除数。target=None 时扫全部。"""
+    groups = {}
+    for e in history_read():
+        if not e.get("recording"):
+            continue
+        k = _target_of(e)
+        if target is None or k == target:
+            groups.setdefault(k, []).append(e)
+    removed = 0
+    for tgt, entries in groups.items():
+        # 参考句已经被删掉的，录音在界面上再也点不到，一条都不留
+        if tgt[0] == "sentence" and tgt[1] and not os.path.exists(tgt[1]):
+            keep = set()
+        else:
+            keep = {e["recording"] for e in sorted(entries, key=_quality_of, reverse=True)[:RETAIN_BEST]}
+            keep |= {e["recording"] for e in sorted(entries, key=lambda x: x.get("ts", 0), reverse=True)[:RETAIN_RECENT]}
+        for e in entries:
+            if e["recording"] in keep:
+                continue
+            for f in (e["recording"], e.get("png")):
+                if f:
+                    try:
+                        os.remove(safe(f))
+                        removed += 1
+                    except (OSError, PermissionError):
+                        pass
+    return removed
+
+
 def list_segments():
     out = []
     for f in sorted(os.listdir("segments"), key=lambda x: os.path.getmtime(os.path.join("segments", x)), reverse=True):
@@ -423,9 +561,26 @@ def ffmpeg(*args):
         raise RuntimeError("ffmpeg: " + r.stderr.strip()[-400:])
 
 
+GONE = (BrokenPipeError, ConnectionResetError)   # 客户端提前断开：刷新页面、切模式时浏览器取消在途请求
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):  # 安静一点
         pass
+
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except GONE:
+            self.close_connection = True      # 对面已经走了，没什么可报的
+
+    def fail(self, e):
+        """出错时回一个 500；连接已经断了就安静收场，别在死 socket 上二次抛。"""
+        traceback.print_exc()
+        try:
+            self.send_json({"error": str(e)}, 500)
+        except GONE:
+            self.close_connection = True
 
     # ---------- 工具 ----------
     def send_json(self, obj, code=200):
@@ -474,14 +629,18 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/api/news":
                 return self.send_json({"news": list_news(), "segments": list_segments(),
                                        "tts": shutil.which("say") is not None, "frozen": FROZEN, "root": ROOT,
-                                       "align": align_mora.available(), "summary": history_summary()})
+                                       "align": align_mora.available(), "summary": history_summary(),
+                                       "voices": ja_voices(), "voice": default_voice()})
             if u.path == "/api/history":
-                return self.send_json({"history": history_read(q["ref"][0] if "ref" in q else None)})
+                hs = history_read(q["ref"][0] if "ref" in q else None)
+                for e in hs:      # 被清理掉的录音，前端应该把回放按钮灰掉而不是假装能放
+                    e["has_audio"] = bool(e.get("recording") and os.path.exists(e["recording"]))
+                return self.send_json({"history": hs})
             if u.path == "/api/article":
                 with open(safe(q["path"][0]), encoding="utf-8") as f:
                     return self.send_json({"text": f.read()})
             if u.path == "/api/wordlist":
-                return self.send_json({"words": WORDS})
+                return self.send_json({"words": wordlist(), "accent": accent.available()})
             if u.path == "/api/sounds":
                 return self.send_json({"groups": SOUNDS, "gojuon": gojuon(), "align": align_mora.available()})
             if u.path == "/api/baseline":
@@ -492,7 +651,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send_json({"history": history_read(), "summary": history_summary()})
             if u.path == "/api/say":
                 return self.send_json({"path": say_ref(
-                    q["text"][0], q.get("voice", ["Kyoko"])[0], int(q.get("rate", ["170"])[0]),
+                    q["text"][0], q.get("voice", [""])[0], int(q.get("rate", ["170"])[0]),
                     float(q.get("tempo", ["1"])[0]), float(q.get("pad", ["0"])[0]))})
             if u.path == "/api/target":
                 return self.send_json(target_levels(safe(q["ref"][0])))
@@ -509,9 +668,10 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/media":
                 return self.send_file(safe(q["path"][0]))
             self.send_error(404)
+        except GONE:
+            self.close_connection = True
         except Exception as e:
-            traceback.print_exc()
-            self.send_json({"error": str(e)}, 500)
+            self.fail(e)
 
     # ---------- POST ----------
     def do_POST(self):
@@ -567,7 +727,7 @@ class H(BaseHTTPRequestHandler):
                 name = f"{time.strftime('%m%d_%H%M%S')}_tts.wav"
                 aiff = os.path.join("segments", name + ".aiff")
                 out = os.path.join("segments", name)
-                subprocess.run(["say", "-v", d.get("voice", "Kyoko"), "-r", str(d.get("rate", 170)), "-o", aiff, text],
+                subprocess.run(["say", "-v", d.get("voice") or default_voice(), "-r", str(d.get("rate", 170)), "-o", aiff, text],
                                check=True, capture_output=True)
                 ffmpeg("-i", aiff, out)
                 os.remove(aiff)
@@ -603,6 +763,7 @@ class H(BaseHTTPRequestHandler):
                 r["at"] = time.strftime("%Y-%m-%d %H:%M:%S")
                 history_append({**{k: v for k, v in r.items() if k not in ("ref_curve", "my_curve", "t")},
                                 "type": "sentence"})
+                prune_recordings(("sentence", r["ref"]))
                 return self.send_json(r)
 
             if u.path == "/api/pron":
@@ -623,14 +784,19 @@ class H(BaseHTTPRequestHandler):
                     r["ok"] = bool(r["confidence"] >= 0.60)
                 else:
                     want = [int(x) for x in q.get("levels", [""])[0].split(",") if x != ""]
-                    got = r["levels"]
                     r["want"] = want
                     r["word"] = q.get("word", [""])[0]
-                    r["ok"] = bool(len(want) == len(got) and all(
-                        g is not None and g == w for g, w in zip(got, want)))
-                    r["wrong"] = [i for i, (g, w) in enumerate(zip(got, want)) if g is None or g != w] \
-                        if len(want) == len(got) else []
+                    # 不再逐拍二值化判对错（差不到 1 个半音时等于掷硬币），
+                    # 改成量「高拍和低拍分得多开」，见 accent.pitch_fit
+                    fit = accent.pitch_fit([m["pitch"] for m in r["mora"]], want) \
+                        if len(want) == len(r["mora"]) else {"sep": None, "verdict": "unknown"}
+                    r["fit"] = fit
+                    r["ok"] = fit["verdict"] == "clear"
+                    r["wrong"] = [i for i, (m, w) in enumerate(zip(r["mora"], want))
+                                  if m["level"] is not None and m["level"] != w] \
+                        if len(want) == len(r["mora"]) else []
                 history_append({k: v for k, v in r.items() if k != "mora"})
+                prune_recordings(_target_of(r))
                 return self.send_json(r)
 
             if u.path == "/api/quit":
@@ -645,11 +811,14 @@ class H(BaseHTTPRequestHandler):
                 for x in (p, p + ".json"):
                     if os.path.exists(x):
                         os.remove(x)
-                return self.send_json({"ok": True})
+                # 参考句没了，练它的那些录音在界面上就再也点不到了，一并删掉
+                gone = drop_media(("sentence", d["path"]))
+                return self.send_json({"ok": True, "removed": gone})
             self.send_error(404)
+        except GONE:
+            self.close_connection = True
         except Exception as e:
-            traceback.print_exc()
-            self.send_json({"error": str(e)}, 500)
+            self.fail(e)
 
 
 if __name__ == "__main__":
@@ -658,6 +827,14 @@ if __name__ == "__main__":
         if FROZEN and sys.platform == "darwin":
             subprocess.run(["osascript", "-e", f'display alert "跟读练习" message "{msg}"'])
         sys.exit(msg)
+    # 启动时扫一遍：录音时只清当前对象，不再练的对象否则永远不会被清
+    try:
+        n = prune_recordings()
+        if n:
+            print(f"清理了 {n} 个旧录音/对比图（每个练习对象保留最好 1 条 + 最近 {RETAIN_RECENT} 条）", flush=True)
+    except Exception as e:
+        print(f"清理旧录音时出错（不影响使用）: {e}", flush=True)
+
     srv = None
     port = PORT
     for port in range(PORT, PORT + 10):  # 端口被占就往后找

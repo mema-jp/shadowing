@@ -86,6 +86,52 @@ def test_optional_align():
           note="已装 torch，按假名功能可用" if avail else "没装 torch，按假名功能会自动隐藏（正常）")
 
 
+def test_accent():
+    """调型词典：最小对是教科书级已知答案，用它判词典接得对不对。不需要联网（词典已在本地）。"""
+    import accent
+    if not accent.available():
+        check("调型词典可用", True, note="没装 pyopenjtalk，模式② 和目标台阶会自动隐藏（正常）")
+        return
+    pairs = [("橋", [0, 1]), ("箸", [1, 0]), ("雨", [1, 0]), ("飴", [0, 1]), ("神", [1, 0]),
+             ("紙", [0, 1]), ("酒", [0, 1]), ("鮭", [1, 0]), ("今", [1, 0]), ("居間", [0, 1])]
+    bad = []
+    for kanji, want in pairs:
+        _ms, got = accent.levels(kanji)
+        if got != want:
+            bad.append(f"{kanji} 得到 {got} 期望 {want}")
+    check("10 组最小对调型全中", not bad, "; ".join(bad))
+    # 尾高和平板单独读都是低高，型必须能分开，否则接助词时就错了
+    check("尾高(橋)和平板(酒)的型不同",
+          accent.phrases("橋")[0]["acc"] != accent.phrases("酒")[0]["acc"])
+    check("型 0 平板 = 低高高", accent.levels_from_acc(0, 3) == [0, 1, 1])
+    check("型 1 頭高 = 高低低", accent.levels_from_acc(1, 3) == [1, 0, 0])
+    check("型 2 = 低高低", accent.levels_from_acc(2, 3) == [0, 1, 0])
+    # NHK 正文带注音，不剥掉会让词典把汉字和读音各读一遍
+    plain = accent.strip_ruby("台風（たいふう）25号（ごう）")
+    check("剥掉 NHK 注音", plain == "台風25号", f"得到 {plain!r}")
+    n_raw = len(accent.levels("台風（たいふう）")[0])
+    n_strip = len(accent.levels("台風")[0])
+    check("带注音不会读两遍", n_raw == n_strip, f"带注音 {n_raw} 拍 vs 纯汉字 {n_strip} 拍")
+    # 两套记法归一化后才对得上（とおい / とーい、は / わ）
+    check("长音记法归一", accent.normalize(list("とおい")) == accent.normalize(list("とーい")),
+          f"{accent.normalize(list('とおい'))} vs {accent.normalize(list('とーい'))}")
+    check("助词 は 归一到读音", accent.normalize(["は"]) == ["わ"])
+    # 调型迁移：对不上的拍必须是 None，不能瞎给一个值
+    got = accent.align_to(["た", "い", "ふ", "う"], "台風")
+    check("调型能迁到已对齐的拍上", len(got) == 4 and any(v is not None for v in got), f"得到 {got}")
+    check("对不上的拍返回 None 而不是猜",
+          all(v in (0, 1, None) for v in accent.align_to(["ぴ", "ょ", "ん"], "台風")))
+    # 判定改成量「高低分得多开」，不再逐拍二值化比对错
+    cases = [("清楚", [-3.0, 3.0], [0, 1], "clear"), ("方向对但平", [-0.5, 0.7], [0, 1], "flat_ok"),
+             ("完全没分开", [-0.4, -0.4], [0, 1], "flat"), ("走向反了", [2.6, -0.3], [0, 1], "reversed")]
+    for name, pitches, lv, want in cases:
+        got = accent.pitch_fit(pitches, lv)["verdict"]
+        check(f"高低差判定 · {name}", got == want, f"得到 {got} 期望 {want}")
+    check("高低差是带符号的量", accent.pitch_fit([-3.0, 3.0], [0, 1])["sep"] == 6.0)
+    check("取不到音高时不硬判", accent.pitch_fit([None, None], [0, 1])["verdict"] == "unknown")
+    check("全是高拍时不硬判", accent.pitch_fit([1.0, 2.0], [1, 1])["verdict"] == "unknown")
+
+
 if __name__ == "__main__":
     print("音高对比：")
     test_compare()
@@ -93,6 +139,8 @@ if __name__ == "__main__":
     test_kana()
     print("可选依赖：")
     test_optional_align()
+    print("调型词典：")
+    test_accent()
     print()
     if _fail:
         sys.exit(f"{_fail} 项没通过。")

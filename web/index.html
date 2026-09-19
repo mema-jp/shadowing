@@ -255,7 +255,8 @@ details.other>*:not(summary){margin:0 15px 15px}
 /* ===== 目标台阶（§5.1，模式② / ③ 共用） ===== */
 .stair{border:1px solid rgba(42,120,214,.40);background:rgba(42,120,214,.09);border-radius:11px;padding:16px 18px;flex:none}
 .stair .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
-.stair .hd b{font-size:12px;color:var(--sel)}
+.stair .hd b{font-size:12px}
+.stair.alt{border-color:var(--bd-weak);background:var(--bg-feed)}
 .stair .hd span{font-size:11.5px;color:var(--ink4)}
 .stair .lg{display:flex;gap:14px;font-size:11px;color:var(--ink4);margin-bottom:2px}
 .stair .lg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
@@ -264,6 +265,7 @@ details.other>*:not(summary){margin:0 15px 15px}
 .stair .kn span{white-space:nowrap;font-size:20px;line-height:1.4}
 .stair .kn span.dbl{font-size:15px;letter-spacing:-.04em}
 .stair .kn span.bad{color:var(--bad)}
+.stair .kn span.unk{opacity:.3}   /* 词典对不上的拍：留空不画 */
 .stair.small .kn span{font-size:16px}
 .stair.small .kn span.dbl{font-size:13px}
 
@@ -497,7 +499,7 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
         <div class="body">
           <textarea id="ttsText" rows="2" placeholder="おはようございます。今日はいい天気ですね。"></textarea>
           <div class="field" style="margin-top:6px">
-            <select id="ttsVoice"><option value="Kyoko">Kyoko</option><option value="Otoya">Otoya</option></select>
+            <select id="ttsVoice"></select>
             <span data-t="rate">语速</span> <input type="number" id="ttsRate" value="170" min="90" max="300" step="10">
             <button id="ttsBtn" class="btn-s" data-t="ttsGo">生成参考</button>
           </div>
@@ -659,7 +661,19 @@ const STR = {
     crumbPick:"选一句", crumbPractice:"练习中", crumbDone:"已练稳",
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
-    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比", audioGone:"この録音は保存ポリシーにより削除済み", audioGone:"这一遍的录音已按保留策略清理",
+    v_clear:"高低がはっきり分かれた",
+    v_flat_ok:"方向は合っているが平ら",
+    v_flat:"高低が分かれていない",
+    v_reversed:"高低が逆",
+    v_unknown:"判定できず",
+    v_note:"幅と速さは見ない。見るのは「高い拍と低い拍がどれだけ離れているか」。",
+    v_clear:"高低がはっきり分かれた",
+    v_flat_ok:"方向は合っているが平ら",
+    v_flat:"高低が分かれていない",
+    v_reversed:"高低が逆",
+    v_unknown:"判定できず",
+    v_note:"幅と速さは見ない。見るのは「高い拍と低い拍がどれだけ離れているか」。",
     bodyTitle:"本文", bodyFoot:"绿色底是正在练的那一句，点正文里的任意一句也能切过去。",
     manual:"手动截取一段", markStart:"起点=现在", markEnd:"终点=现在", preview:"试听这段", useIt:"用这段",
     manualNote:"用上面「这篇的正文」里的播放器定位：放到句首点起点，句尾点终点。",
@@ -692,7 +706,7 @@ const STR = {
     crumbPick:"文を選ぶ", crumbPractice:"練習中", crumbDone:"安定",
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
-    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比",
     bodyTitle:"本文", bodyFoot:"緑の背景が今練習している文です。本文中のどの文をクリックしても切り替えられます。",
     manual:"手動で切り出す", markStart:"開始=現在", markEnd:"終了=現在", preview:"試聴", useIt:"これを使う",
     manualNote:"「本文」のプレーヤーで位置を合わせ、文頭で開始、文末で終了を押します。",
@@ -820,6 +834,10 @@ async function loadAll() {
   const j = await api('/api/news');
   state.news = j.news; state.segments = j.segments;
   $('ttsSec').hidden = !j.tts;
+  // 声音列表由后端给（本机实际装了什么），别写死——Otoya 在很多机器上没有，say 会静默退回默认
+  if (j.voices && j.voices.length && !$('ttsVoice').options.length) {
+    $('ttsVoice').innerHTML = j.voices.map(v => `<option value="${v}"${v === j.voice ? ' selected' : ''}>${v}</option>`).join('');
+  }
   $('quitBtn').hidden = !j.frozen;
   const sm = j.summary || {};
   $('statTakes').textContent = sm.attempts || 0;
@@ -1292,7 +1310,11 @@ function showResult(r, keepCombo) {
   const hasCurve = !!(r.t && r.ref_curve);
   $('pitchCanvas').closest('.chartcard').hidden = !hasCurve;
   if (hasCurve) drawPitch(r); else document.querySelector('details.more').open = true;
-  $('myAudio').src = '/media?path=' + encodeURIComponent(r.recording);
+  // 旧录音会按保留策略清掉，这时别把播放键做成能点却放不出声
+  const gone = r.has_audio === false;
+  $('playMineBtn').disabled = gone;
+  $('playMineBtn').title = gone ? T('audioGone') : '';
+  if (!gone) $('myAudio').src = '/media?path=' + encodeURIComponent(r.recording);
   if (!keepCombo) renderSteps();
 }
 // 保留原有「具体到哪个假名」的评语逻辑
@@ -1465,7 +1487,7 @@ async function sendSound(blob) {
 }
 
 /* ===================== 模式② 語 ===================== */
-const S2 = { words: [], i: 0, res: null, combo: 0 };
+const S2 = { words: [], i: 0, side: 'a', res: null, combo: 0 };
 async function initWord() {
   if (S2.words.length) return renderWord();
   try { const j = await api('/api/wordlist'); S2.words = j.words; } catch (e) { S2.words = []; }
@@ -1480,23 +1502,34 @@ function renderWord() {
   const st = stableWords();
   $('railWord').innerHTML = `<div class="sec-head"><div class="sec-title">最小対（内蔵辞書）</div><div class="sec-note">${S2.words.length} 組</div></div>` +
     S2.words.map((w, i) => {
-      const ok = (st[w.a.kanji] || 0) >= 3;
-      return `<div class="railrow ${i === S2.i ? 'on' : ''}" data-w="${i}"><span class="dot" style="background:${ok ? 'var(--ok)' : 'var(--dot-off)'}"></span>` +
-        `<span class="nm">${w.a.kanji} / ${w.b.kanji}</span><span class="vv" style="color:var(--ok);opacity:${ok ? 1 : 0}">安定</span></div>`;
+      // 两侧分别记：能把「橋」读对不代表能把「箸」读对
+      const oa = (st[w.a.kanji] || 0) >= 3, ob = (st[w.b.kanji] || 0) >= 3;
+      const tag = k => `<span style="color:${k ? 'var(--ok)' : 'inherit'}">`;
+      return `<div class="railrow ${i === S2.i ? 'on' : ''}" data-w="${i}">` +
+        `<span class="dot" style="background:${oa && ob ? 'var(--ok)' : 'var(--dot-off)'}"></span>` +
+        `<span class="nm">${tag(oa)}${w.a.kanji}</span> / ${tag(ob)}${w.b.kanji}</span></span>` +
+        `<span class="vv" style="color:var(--ok);opacity:${oa && ob ? 1 : 0}">安定</span></div>`;
     }).join('') + `<div class="sec-note" style="margin-top:12px">声调在辞典里，所以目标一定正确。</div>`;
-  $('railWord').querySelectorAll('[data-w]').forEach(e => e.onclick = () => { S2.i = +e.dataset.w; S2.res = null; S2.combo = 0; renderWord(); });
+  $('railWord').querySelectorAll('[data-w]').forEach(e => e.onclick = () => { S2.i = +e.dataset.w; S2.side = 'a'; S2.res = null; S2.combo = 0; renderWord(); });
 
   const w = S2.words[S2.i]; if (!w) { $('panel-word').innerHTML = '<div class="todo">没有内置词表</div>'; return; }
-  const a = w.a, kana = a.kana.join('');
+  // 两侧都能练：惯性读成高低还是低高因人而异，只练一侧等于只学会一半
+  const a = w[S2.side], other = w[S2.side === 'a' ? 'b' : 'a'], kana = a.kana.join('');
   $('panel-word').innerHTML =
     `<div class="hd1"><div class="t">練習中</div><div class="n">${S2.i + 1} / ${S2.words.length}</div></div>
      <div class="card">
        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
-         <div><span class="wordk">${a.kanji}</span> <span style="font-size:14px;color:var(--ink3)">${a.gloss}</span></div>
+         <div><span class="wordk">${a.kanji}</span> <span style="font-size:14px;color:var(--ink3)">${a.gloss}</span>
+           <span class="segsw" style="margin-left:12px;vertical-align:4px;display:inline-flex;width:auto">
+             <button data-side="a" class="${S2.side === 'a' ? 'on' : ''}" style="padding:4px 12px">${w.a.kanji}</button>
+             <button data-side="b" class="${S2.side === 'b' ? 'on' : ''}" style="padding:4px 12px">${w.b.kanji}</button>
+           </span></div>
          <div class="n" style="font-family:var(--mono);font-size:12px;color:var(--ink5)">${kana} · ${a.kana.length} 拍</div>
        </div>
        <div class="stair" id="stairWord" style="margin-top:14px"></div>
-       <div class="btnrow"><button id="w2a">▶ ${a.kanji}</button><button id="w2b" class="line">▶ ${w.b.kanji}（対比）</button></div>
+       <div class="stair" id="stairWordB" style="margin-top:8px"></div>
+       <div class="btnrow"><button id="w2a">▶ ${a.kanji}</button><button id="w2b" class="line">▶ ${other.kanji}（対比）</button>
+         <button id="w2ab" class="line">交互に 2 回</button></div>
      </div>
      <div class="two">
        <div class="card recmini">
@@ -1504,37 +1537,54 @@ function renderWord() {
          <div style="font-size:14px" id="w2hint">按空格或点红点，读「${a.kanji}」</div>
          <div class="combo"><span class="dots" id="w2dots"></span><span class="n" id="w2n"></span></div>
        </div>
-       <div class="judge ${S2.res ? (S2.res.ok ? 'y' : 'n') : ''}" id="w2judge">
+       <div class="judge ${S2.res ? (S2.res.ok ? 'y' : (S2.res.fit && S2.res.fit.verdict === 'reversed' ? 'n' : '')) : ''}" id="w2judge">
          <div style="display:flex;gap:10px;align-items:flex-start">
            ${S2.res ? `<div class="ico">${S2.res.ok ? '✓' : '✕'}</div>` : ''}
            <div style="flex:1">
-             <div class="kick">${!S2.res ? '録音するとここに判定が出ます' : S2.res.ok ? '走向が一致' : '走向がずれています'}</div>
+             <div class="kick">${!S2.res ? '録音するとここに判定が出ます' : T('v_' + ((S2.res.fit || {}).verdict || 'unknown'))}</div>
              <div class="tx" id="w2tx"></div>
            </div>
          </div>
-         <div class="fix">ここでは幅と速さは見ない。判定は「各拍の高低が目標と一致しているか」だけ。</div>
+         <div class="fix" id="w2fix"></div>
        </div>
      </div>`;
-  renderStair($('stairWord'), { kana: a.kana, levels: a.levels, user: S2.res ? S2.res.levels : null });
+  renderStair($('stairWord'), { kana: a.kana, levels: a.levels, user: S2.res ? S2.res.levels : null },
+              { title: `${T('stTitle')} · ${a.kanji}` });
+  renderStair($('stairWordB'), { kana: other.kana, levels: other.levels },
+              { title: `${T('stContrast')} · ${other.kanji}`, hint: other.gloss, color: 'rgba(0,0,0,.45)' });
+  $('panel-word').querySelectorAll('[data-side]').forEach(e => e.onclick = () => {
+    S2.side = e.dataset.side; S2.res = null; S2.combo = 0; renderWord();   // 换一侧就是换一个练习对象
+  });
   dots($('w2dots'), 3, S2.combo); $('w2n').textContent = `${S2.combo} / 3　連続`;
-  $('w2a').onclick = () => playRef(kana);
-  $('w2b').onclick = () => playRef(w.b.kana.join(''));
-  prefetchRef(kana, [[1, .12]]); prefetchRef(w.b.kana.join(''), [[1, .12]]);
+  // 必须传汉字：两个词的假名相同，传假名会让两个按钮播到同一个缓存文件
+  $('w2a').onclick = () => playRef(a.kanji);
+  $('w2b').onclick = () => playRef(other.kanji);
+  $('w2ab').onclick = async () => {
+    for (const k of [a.kanji, other.kanji, a.kanji, other.kanji]) {
+      const j = await api('/api/say?pad=0.12&text=' + encodeURIComponent(k));
+      await new Promise(res => { const au = new Audio('/media?path=' + encodeURIComponent(j.path)); au.onended = res; au.play().catch(res); });
+    }
+  };
+  prefetchRef(a.kanji, [[1, .12]]); prefetchRef(other.kanji, [[1, .12]]);
   $('w2rec').onclick = () => recOn() ? recStop($('w2rec')) : recStart($('w2rec'), sendWord);
-  // 判词：点名哪一拍、往哪个方向、会被听成什么
+  // 判词：给带符号的高低差，不给二值对错（差不到 1 个半音时二值判定等于掷硬币）
   if (S2.res) {
-    const wrong = S2.res.wrong || [];
-    $('w2tx').textContent = S2.res.ok
-      ? `${a.kana.join('')} の高低が目標どおりです。`
-      : wrong.map(i => {
-          const want = a.levels[i] === 1 ? '高い拍' : '低い拍';
-          const now = S2.res.levels[i] === 1 ? '高いまま' : '低いまま';
-          return `${a.kana[i]} が ${now} です。目標は ${want}。`;
-        }).join('') + `このままだと「${w.b.kanji}」に聞こえます。`;
+    const fit = S2.res.fit || {}, sep = fit.sep;
+    const hiK = a.kana.filter((_, i) => a.levels[i] === 1).join('、');
+    const loK = a.kana.filter((_, i) => a.levels[i] === 0).join('、');
+    $('w2tx').textContent =
+      sep == null ? '音高が取れませんでした。もう一度録ってみてください。'
+      : fit.verdict === 'clear' ? `「${hiK}」が「${loK}」より ${sep.toFixed(1)} 半音高い。はっきり分かれています。`
+      : fit.verdict === 'flat_ok' ? `方向は合っていますが差が ${sep.toFixed(1)} 半音しかありません。「${hiK}」をもっと高く、「${loK}」をもっと低く。`
+      : fit.verdict === 'flat' ? `高低の差が ${Math.abs(sep).toFixed(1)} 半音——ほぼ平らです。今は「${other.kanji}」とも区別がつきません。`
+      : `逆になっています（${sep.toFixed(1)} 半音）。このままだと「${other.kanji}」に聞こえます。`;
+    $('w2fix').textContent = `アナウンサーの目安は 2.6 半音。${T('v_note')}`;
+  } else {
+    $('w2fix').textContent = T('v_note');
   }
 }
 async function sendWord(blob) {
-  const w = S2.words[S2.i], a = w.a;
+  const w = S2.words[S2.i], a = w[S2.side];
   $('w2hint').innerHTML = '<span class="spin"></span> 分析中…';
   try {
     const r = await api(`/api/pron?type=word&kana=${encodeURIComponent(a.kana.join(''))}&levels=${a.levels.join(',')}&word=${encodeURIComponent(a.kanji)}`,
@@ -1657,12 +1707,21 @@ function renderStair(el, d, opt = {}) {
   el.hidden = false;
   const W = 420, slot = W / n, HI = 15, LO = 44;
   const yOf = v => (v ? HI : LO);
-  const pts = (arr, dy) => arr.map((v, i) =>
-    `${(i * slot).toFixed(1)},${yOf(v) + dy} ${((i + 1) * slot).toFixed(1)},${yOf(v) + dy}`).join(' ');
-  const wrong = i => user && user[i] != null && user[i] !== levels[i];
+  // 词典对不上的拍是 null：断开，不画也不判错——宁可留空也不瞎画
+  const segs = (arr, dy) => {
+    const out = []; let cur = [];
+    arr.forEach((v, i) => {
+      if (v == null) { if (cur.length) out.push(cur); cur = []; return; }
+      cur.push(`${(i * slot).toFixed(1)},${yOf(v) + dy} ${((i + 1) * slot).toFixed(1)},${yOf(v) + dy}`);
+    });
+    if (cur.length) out.push(cur);
+    return out;
+  };
+  const wrong = i => user && user[i] != null && levels[i] != null && user[i] !== levels[i];
   const done = !!user;
   const small = opt.small != null ? opt.small : n >= 11;   // 长句用小号，否则假名会挤
-  el.className = 'stair' + (small ? ' small' : '');
+  const tint = opt.color || '#2a78d6';                     // 对比词用别的颜色，免得和"要练的目标"混淆
+  el.className = 'stair' + (small ? ' small' : '') + (opt.color ? ' alt' : '');
 
   const bands = !done ? '' : levels.map((_, i) => wrong(i)
     ? `<rect x="${(i * slot).toFixed(1)}" y="6" width="${slot.toFixed(1)}" height="52" rx="4" fill="rgba(214,74,58,.09)"/>` : '').join('');
@@ -1670,14 +1729,17 @@ function renderStair(el, d, opt = {}) {
     `<svg viewBox="0 0 ${W} 58" preserveAspectRatio="none" aria-hidden="true">` + bands +
     `<line x1="0" y1="${HI}" x2="${W}" y2="${HI}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
     `<line x1="0" y1="${LO}" x2="${W}" y2="${LO}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
-    `<polyline points="${pts(levels, 0)}" fill="none" stroke="#2a78d6" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" opacity="${done ? .4 : 1}"/>` +
-    (done ? `<polyline points="${pts(user.map((v, i) => v == null ? levels[i] : v), 3)}" fill="none" stroke="#d64a3a" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/>` : '') +
+    segs(levels, 0).map(s => `<polyline points="${s.join(' ')}" fill="none" stroke="${tint}" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" opacity="${done ? .4 : 1}"/>`).join('') +
+    (done ? segs(user.map((v, i) => levels[i] == null ? null : (v == null ? levels[i] : v)), 3)
+      .map(s => `<polyline points="${s.join(' ')}" fill="none" stroke="#d64a3a" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/>`).join('') : '') +
     `</svg>`;
   const row = `<div class="kn" style="grid-template-columns:repeat(${n},minmax(0,1fr))">` +
-    kana.map((k, i) => `<span class="${k.length > 1 ? 'dbl' : ''}${wrong(i) ? ' bad' : ''}">${k}</span>`).join('') + '</div>';
+    kana.map((k, i) => `<span class="${k.length > 1 ? 'dbl' : ''}${wrong(i) ? ' bad' : ''}${levels[i] == null ? ' unk' : ''}">${k}</span>`).join('') + '</div>';
   const lg = done ? `<div class="lg"><span><i style="background:#2a78d6"></i>${T('stTarget')}</span><span><i style="background:#d64a3a"></i>${T('stYou')}</span></div>` : '';
+  const title = opt.title || (done ? T('stTitleDone') : T('stTitle'));
+  const hint = opt.hint === false ? '' : (opt.hint || T('stHint'));
   el.innerHTML =
-    `<div class="hd"><b>${done ? T('stTitleDone') : T('stTitle')}</b><span>${T('stHint')}</span></div>` + lg + svg + row;
+    `<div class="hd"><b style="color:${tint}">${title}</b><span>${hint}</span></div>` + lg + svg + row;
 }
 
 /* ===================== 音高曲线 ===================== */
@@ -1803,7 +1865,11 @@ function renderHistory() {
       `<div class="bar"><i class="${ok ? 'ok' : ''}" style="width:${Math.min(100, x.corr * 100)}%"></i></div>` +
       `<div class="v ${ok ? 'ok' : ''}">${x.corr.toFixed(2)}</div></div>`;
   }).join('');
-  $('histBody').querySelectorAll('.hrow').forEach(tr => tr.onclick = () => showResult(h[+tr.dataset.i], true));
+  $('histBody').querySelectorAll('.hrow').forEach(tr => {
+    const e = h[+tr.dataset.i];
+    if (e.has_audio === false) { tr.style.opacity = '.55'; tr.title = T('audioGone'); }
+    tr.onclick = () => showResult(e, true);
+  });
 }
 
 setLevel(state.level);
