@@ -169,9 +169,6 @@ SAY_LOCK = threading.Lock()
 MIN_WAV = 1000          # 16k 单声道 16bit：小于这个长度说明 say 没真的出声（空文件只有 78 字节的头）
 
 
-# 实测排名（10 组最小对的调型正确率 / 平均高低差）：
-# Flo 10/10 4.25 · Eddy 10/10 3.71 · Shelley 10/10 3.44 · Grandma 10/10 3.07 · Kyoko 7/10 1.84
-VOICE_RANK = ["Flo", "Eddy", "Shelley", "Grandma", "Reed", "Grandpa", "Kyoko"]
 _default_voice = None
 
 
@@ -188,13 +185,18 @@ def default_voice() -> str:
     return _default_voice
 
 
+# 排序依据：10 组最小对实测的调型正确率 / 平均高低差。
+# Flo 10/10 4.25 半音 · Eddy 10/10 3.71 · Shelley 10/10 3.44 · Grandma 10/10 3.07 · Kyoko 7/10 1.84
+# 调型清楚对这个工具最要紧——参考音是拿来学高低的。不满意可在下拉框里换。
+VOICE_RANK = ["Flo", "Eddy", "Shelley", "Grandma", "Reed", "Grandpa", "Kyoko"]
+
+
 def ja_voices() -> list:
     """本机实际可用的日语声音。前端据此渲染下拉框，避免选到不存在的声音后静默退回。
 
     顺序按实测：拿 10 组最小对量「调型是否正确、高低差多大」，Flo 10/10 / 4.25 半音最好，
     Kyoko 只有 7/10 / 1.84。名字不在这份榜单里的排在后面。
     """
-    ranked = ["Flo", "Eddy", "Shelley", "Grandma", "Reed", "Grandpa", "Kyoko"]
     try:
         out = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=10).stdout
     except Exception:
@@ -205,7 +207,7 @@ def ja_voices() -> list:
             name = line.split()[0]
             if name not in have:
                 have.append(name)
-    return sorted(have, key=lambda v: ranked.index(v) if v in ranked else len(ranked))
+    return sorted(have, key=lambda v: VOICE_RANK.index(v) if v in VOICE_RANK else len(VOICE_RANK))
 
 
 def say_ref(text: str, voice: str = "", rate: int = 170, tempo: float = 1.0, pad: float = 0.0) -> str:
@@ -220,6 +222,7 @@ def say_ref(text: str, voice: str = "", rate: int = 170, tempo: float = 1.0, pad
     更糟的是会把零采样的空 wav 留在缓存里，之后每次命中缓存都失败且不会自愈。
     """
     import hashlib
+    text = accent.strip_ruby(text)      # 「漢字（かな）」不剥的话 say 会把汉字和读音各念一遍
     voice = voice or default_voice()
     os.makedirs("refs", exist_ok=True)
     tempo = min(2.0, max(0.5, float(tempo)))        # atempo 的有效下限就是 0.5
@@ -724,14 +727,14 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("文本为空")
                 if not shutil.which("say"):
                     raise RuntimeError("系统没有 say 命令（只有 macOS 有）")
+                # 走统一的合成入口（会剥注音、校验非空、加锁），别再单独调 say——
+                # 之前这里自己调，结果「漢字（かな）」被念了两遍
+                src = say_ref(text, d.get("voice") or default_voice(), int(d.get("rate", 170)))
                 name = f"{time.strftime('%m%d_%H%M%S')}_tts.wav"
-                aiff = os.path.join("segments", name + ".aiff")
                 out = os.path.join("segments", name)
-                subprocess.run(["say", "-v", d.get("voice") or default_voice(), "-r", str(d.get("rate", 170)), "-o", aiff, text],
-                               check=True, capture_output=True)
-                ffmpeg("-i", aiff, out)
-                os.remove(aiff)
-                info = {"label": text[:40], "tts": True}
+                shutil.copyfile(src, out)
+                plain = accent.strip_ruby(text)
+                info = {"label": plain[:40], "text": plain, "tts": True}
                 json.dump(info, open(out + ".json", "w", encoding="utf-8"), ensure_ascii=False)
                 return self.send_json({"path": out, **info})
 

@@ -544,6 +544,7 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
           <div class="player">
             <button id="playRefBtn">▶ <span data-t="playRef">听播音员</span></button>
             <button id="loopBtn" class="tog" data-t="loop">循环</button>
+            <button id="slowBtn" class="tog">0.8×</button>
             <div class="progress"><i id="refProg"></i></div>
             <audio id="refAudio" preload="auto" hidden></audio>
           </div>
@@ -747,6 +748,8 @@ const DYN = {
       ok:()=>'三项都达标了。再稳几遍就可以换下一句。',
       pitch:(k,up)=>`「${k}」要更${up?'高':'低'}。先用${up?'高':'低'}音把位置定下来，再出声。`,
       pitch2:(k,up)=>`还是「${k}」。把前一拍当跳板：${up?'从低处往上跨一档，跨完保持住':'从高处往下落一档，落下去别回弹'}。`,
+      shape:()=>'先把升降的位置对上：重听参考，注意哪里升、哪里降。这一项不对，其它两项再好也不像。',
+      shape2:()=>'形状还是没对上。把这句拆成两三个小段，一段一段跟，对上了再连起来。',
       amp:()=>'高低的差再拉大一点——高的地方更高、低的地方更低。',
       amp2:()=>'起伏还是不够。试着把整句的最高拍和最低拍先各读一遍，找到这个音程再连起来。',
       rate:(slow)=>slow?'再慢一点，跟着参考音的节奏走。':'再快一点，别在拍之间留空。',
@@ -773,6 +776,8 @@ const DYN = {
       ok:()=>'三項ともクリアです。あと数回安定すれば次の文へ。',
       pitch:(k,up)=>`「${k}」をもっと${up?'高く':'低く'}。${up?'高い':'低い'}音で位置を決めてから声を出す。`,
       pitch2:(k,up)=>`まだ「${k}」です。前の拍を踏み台に：${up?'低いところから一段上げて、上げたまま保つ':'高いところから一段下げて、戻さない'}。`,
+      shape:()=>'まず上がり下がりの位置を合わせましょう。お手本を聞き直して、どこで上がりどこで下がるか確認します。ここが合わないと他の二つが良くても似て聞こえません。',
+      shape2:()=>'形がまだ合いません。二、三の短い区切りに分けて、区切りごとに合わせてからつなげてみてください。',
       amp:()=>'高低の差をもっと大きく——高いところはより高く、低いところはより低く。',
       amp2:()=>'まだ抑揚が小さいです。文中の最高拍と最低拍を単独で読み、その音程をつかんでからつなげてみてください。',
       rate:(slow)=>slow?'もう少しゆっくり。お手本のリズムに合わせて。':'もう少し速く。拍の間を空けないように。',
@@ -974,6 +979,13 @@ function mapSentencesToChunks(sents) {
 let rubyOn = true;
 function renderArticle() {
   const el = $('articleText');
+  // 自己写一句生成的参考：没有文章，但要跟读就得看得见文本
+  if (state.ref && state.ref.text && !refMatchesArticle()) {
+    state.sentSpans = null;
+    $('bodyCard').hidden = false;
+    el.innerHTML = `<span class="sent cur dead">${state.ref.text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</span>`;
+    return;
+  }
   const sents = splitSentences(state.articleRaw || '');
   state.sentSpans = mapSentencesToChunks(sents);
   el.innerHTML = sents.map((s, i) => {
@@ -1129,7 +1141,8 @@ function useRef(path) {
   if (state.ref.start != null) meta.push(`${state.ref.start.toFixed(1)}–${state.ref.end.toFixed(1)}s`);
   if (len) meta.push(`${len.toFixed(1)} ${T('sec')}`);
   $('refMeta').textContent = meta.join(' · ');
-  highlightSentence();
+  renderArticle();
+  $('refAudio').playbackRate = $('slowBtn').classList.contains('on') ? 0.8 : 1;
   const ra = $('refAudio'); ra.src = '/media?path=' + encodeURIComponent(path); ra.play().catch(()=>{});
   $('recBtn').disabled = false;
   $('result').hidden = true; $('cleared').hidden = true; $('fbEmpty').hidden = false;
@@ -1143,6 +1156,12 @@ function useRef(path) {
 }
 $('playRefBtn').onclick = () => { const ra = $('refAudio'); ra.currentTime = 0; ra.play(); };
 $('loopBtn').onclick = e => { const on = !$('refAudio').loop; $('refAudio').loop = on; e.currentTarget.classList.toggle('on', on); };
+// 变速对合成音和 NHK 真人录音都管用，比重新合成一遍省事
+$('slowBtn').onclick = e => {
+  const slow = $('refAudio').playbackRate === 1;
+  $('refAudio').playbackRate = slow ? 0.8 : 1;
+  e.currentTarget.classList.toggle('on', slow);
+};
 $('refAudio').ontimeupdate = e => { const a = e.target; $('refProg').style.width = a.duration ? (a.currentTime / a.duration * 100) + '%' : '0'; };
 $('playMineBtn').onclick = () => { const m = $('myAudio'); m.currentTime = 0; m.play(); };
 
@@ -1670,9 +1689,14 @@ function oneThing(r) {
       if (dev > worst) { worst = dev; wi = i; }
     });
     if (wi >= 0) bad = { kind: 'pitch', i: wi, mora: r.mora[wi].mora, up: state.target.levels[wi] === 1 };
+  } else if (r.corr < L.corr) {
+    // 没做假名对齐就没有逐拍目标，这时至少要看整体形状——
+    // 否则形状 0.66 也会因为幅度和速度过关而被报成「三项都达标」
+    bad = { kind: 'shape' };
   }
   if (!bad && r.amp < L.ampLo) bad = { kind: 'amp' };
   else if (!bad && (r.ratio < L.rLo || r.ratio > L.rHi)) bad = { kind: 'rate', slow: r.ratio > L.rHi };
+  if (!bad && r.corr < L.corr) bad = { kind: 'shape' };
   if (!bad) return { ok: true };
   const sig = bad.kind + (bad.mora || '');
   state.oneRun = (state.oneSig === sig) ? state.oneRun + 1 : 1;
@@ -1687,6 +1711,7 @@ function renderOneThing(r) {
   $('verdictTx').textContent =
     t.ok ? D2.ok()
     : t.kind === 'pitch' ? (t.run >= 2 ? D2.pitch2(t.mora, t.up) : D2.pitch(t.mora, t.up))
+    : t.kind === 'shape' ? (t.run >= 2 ? D2.shape2() : D2.shape())
     : t.kind === 'amp' ? (t.run >= 2 ? D2.amp2() : D2.amp())
     : (t.run >= 2 ? D2.rate2(t.slow) : D2.rate(t.slow));
   // 连着四遍还是同一条，且是单音问题 → 提议去模式① 练
