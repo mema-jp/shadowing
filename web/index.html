@@ -1340,11 +1340,12 @@ function showResult(r, keepCombo) {
 
   renderOneThing(r);
 
-  // 台阶：目标 vs 你（只有做过按假名对齐才有目标调型）
+  // 台阶：反馈栏画「目标 vs 你」；中栏那个始终只画目标。
+  // 两处都叠上录音等于同一张图画两遍，而中栏的作用是"照着读"，多一条红线只会干扰。
   if (state.target && r.mora && r.mora.length === state.target.kana.length) {
-    const d = { kana: state.target.kana, levels: state.target.levels, user: binLevels(r.mora, 'my_pitch') };
-    renderStair($('stairFb'), d);
-    renderStair($('stairMain'), d);
+    renderStair($('stairFb'), { kana: state.target.kana, levels: state.target.levels,
+                                user: binLevels(r.mora, 'my_pitch') });
+    renderStair($('stairMain'), state.target);
   }
 
   $('takesLine').textContent = r.takes.length > 1
