@@ -668,7 +668,7 @@ const STR = {
     crumbPick:"选一句", crumbPractice:"练习中", crumbDone:"已练稳",
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
-    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比", audioGone:"这一遍的录音已按保留策略清理", hearAll:"听整篇", hearStop:"停",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比", audioGone:"这一遍的录音已按保留策略清理", hearAll:"听整篇", hearStop:"停", needArticle:"先在左边点一篇新闻", noAudio:"这篇没有音频文件（若刚换过音频，重启 app.py）", loadingAudio:"音频加载中…", playFail:"播放失败：",
     v_clear:"高低がはっきり分かれた",
     v_flat_ok:"方向は合っているが平ら",
     v_flat:"高低が分かれていない",
@@ -714,7 +714,7 @@ const STR = {
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
     stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比",
-    audioGone:"この録音は保存ポリシーにより削除済み", hearAll:"全文を聞く", hearStop:"停止",
+    audioGone:"この録音は保存ポリシーにより削除済み", hearAll:"全文を聞く", hearStop:"停止", needArticle:"左からニュースを選んでください", noAudio:"この記事には音声がありません（音声を差し替えた直後なら app.py を再起動）", loadingAudio:"読み込み中…", playFail:"再生できません：",
     bodyTitle:"本文", bodyFoot:"緑の背景が今練習している文です。本文中のどの文をクリックしても切り替えられます。",
     manual:"手動で切り出す", markStart:"開始=現在", markEnd:"終了=現在", preview:"試聴", useIt:"これを使う",
     manualNote:"「本文」のプレーヤーで位置を合わせ、文頭で開始、文末で終了を押します。",
@@ -1051,12 +1051,23 @@ const aa = $('articleAudio');
 /* 整篇试听：不选句也能听，边听边跟着高亮。
    去掉侧栏候选列表时把每条的 ▶ 一起带走了，打开文章就没法先听一遍——补回来。 */
 $('playArticle').onclick = () => {
-  if (!state.article || !state.article.mp3) return;
+  // 每一条失败都要说出来。之前这里几处直接 return，点了毫无反应，
+  // 实际原因（这篇没音频 / 后端是旧进程认不出 .m4a / 解码失败）一个字都看不到。
+  const say = m => { const el = $('alignMsg'); if (el) el.textContent = m; };
+  if (!state.article) return say(T('needArticle'));
+  if (!state.article.mp3) return say(T('noAudio'));
   if (!aa.paused) { aa.pause(); return; }
   if (aa.ended || aa.currentTime >= (aa.duration || 1e9) - .05) aa.currentTime = 0;
   aa.playbackRate = $('slowBtn').classList.contains('on') ? 0.8 : 1;
-  aa.play();
+  say(aa.readyState === 0 ? T('loadingAudio') : '');
+  const pr = aa.play();
+  if (pr && pr.catch) pr.catch(e => say(T('playFail') + e.message));
 };
+aa.addEventListener('error', () => {
+  const c = aa.error && aa.error.code;
+  $('alignMsg') && ($('alignMsg').textContent = T('playFail') + (c === 4 ? '浏览器放不了这个格式' : 'code ' + c));
+});
+aa.addEventListener('playing', () => $('alignMsg') && ($('alignMsg').textContent = ''));
 function syncPlayBtn() {
   const b = $('playArticle'); if (!b) return;
   b.textContent = aa.paused ? '▶ ' + T('hearAll') : '❚❚ ' + T('hearStop');

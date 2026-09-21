@@ -222,13 +222,16 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> str:
     # 会报 env_facs_q / channel element 错误并丢帧，实测一篇 60.16s 的转码后只剩 58.37s，
     # 每次都一样。拷贝流下来是 60.20s，一秒不少，而且没有二次有损压缩。
     #
-    # 容器优先 .m4a（浏览器最稳），但把 HLS 的 ADTS AAC 塞进 mp4 需要 aac_adtstoasc
-    # 比特流过滤器，某些 AAC 配置下 ffmpeg 会报 "Not yet implemented"，这时退到
-    # .aac（ADTS 原样装，不需要转换，浏览器同样能放）。
+    # 一律存成 .m4a。先试 -c:a copy（无损），但把 HLS 的 ADTS AAC 塞进 mp4 需要
+    # aac_adtstoasc 比特流过滤器，某些 AAC 配置下 ffmpeg 会报 "Not yet implemented"
+    # （实测四篇里两篇栽在这），这时退而重编码成 AAC 128k——源只有 64kbps，
+    # 重编码到 128k 基本听不出差别。
+    # 不要存裸 ADTS 的 .aac：canPlayType 会说 "probably"，但 Chrome/Edge 实际加载
+    # 不了（readyState 一直是 0），等于下了个放不出声的文件。
     stem_out = os.path.splitext(out_mp3)[0]
-    for ext in (".m4a", ".aac"):
-        out = stem_out + ext
-        r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "copy", out],
+    out = stem_out + ".m4a"
+    for enc in (["-c:a", "copy"], ["-c:a", "aac", "-b:a", "128k"]):
+        r = subprocess.run(common + ["-i", tokenized, "-vn"] + enc + [out],
                            capture_output=True, text=True)
         if r.returncode == 0 and audio_ok(out, want):
             return out
@@ -246,9 +249,9 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> str:
     local = out_mp3 + ".m3u8"
     with open(local, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
-    out = stem_out + ".aac"
+    out = stem_out + ".m4a"
     r = subprocess.run(common + ["-protocol_whitelist", "file,http,https,tcp,tls,crypto",
-                                 "-i", local, "-vn", "-c:a", "copy", out],
+                                 "-i", local, "-vn", "-c:a", "aac", "-b:a", "128k", out],
                        capture_output=True, text=True)
     os.remove(local)
     if r.returncode != 0:
@@ -308,7 +311,7 @@ def redownload(root: str, cookie: str, z_at: str) -> None:
                 note = "，已清掉对齐缓存（需重新对齐）"
             print(f"  {name}: 已更新 {old:.2f}s → {new:.2f}s（{os.path.basename(final)}）{note}")
         except Exception as e:
-            for junk in (base + ".new.m4a", base + ".new.aac"):
+            for junk in (base + ".new.m4a",):
                 if os.path.exists(junk):
                     os.remove(junk)
             print(f"  {name}: 失败 {e}")
