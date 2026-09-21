@@ -73,7 +73,9 @@ def list_news():
         for f in sorted(os.listdir(d)):
             if f.endswith(".txt"):
                 base = f[:-4]
-                mp3 = os.path.join(d, base + ".mp3")
+                # 抓取用拷贝流（不转码）保存成 .m4a；老文件是 .mp3，两种都要认
+                mp3 = next((os.path.join(d, base + e) for e in (".m4a", ".mp3")
+                            if os.path.exists(os.path.join(d, base + e))), os.path.join(d, base + ".mp3"))
                 with open(os.path.join(d, f), encoding="utf-8") as fh:
                     title = fh.readline().strip()
                 out.append({"date": date, "title": re.sub(r"（[^（）]*）", "", title), "title_ruby": title,
@@ -531,7 +533,7 @@ def prune_recordings(target=None) -> int:
 def list_segments():
     out = []
     for f in sorted(os.listdir("segments"), key=lambda x: os.path.getmtime(os.path.join("segments", x)), reverse=True):
-        if f.endswith((".mp3", ".wav")):
+        if f.endswith((".mp3", ".wav", ".m4a")):
             meta = os.path.join("segments", f + ".json")
             info = json.load(open(meta, encoding="utf-8")) if os.path.exists(meta) else {}
             out.append({"path": os.path.join("segments", f), "name": f, **info})

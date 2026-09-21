@@ -16,7 +16,7 @@
   python fetch_nhk.py -n 5      # 最新 5 篇
   python fetch_nhk.py --no-audio
 
-输出: news/日期/01_标题.txt 和 .mp3
+输出: news/日期/01_标题.txt 和 .m4a（拷贝 NHK 原始 AAC，不转码）
 
 接口细节（sitemap、cookie 域、mediatoken）参考了 yangguo/nhk-easy-fetcher (MIT) 的实测记录。
 NHK 内容仅供个人学习，请勿传播。
@@ -196,12 +196,8 @@ def audio_ok(out_mp3: str, want: float) -> bool:
     if got < want * 0.98:
         print(f"    音频不完整：应有 {want:.1f}s，只下到 {got:.1f}s")
         return False
-    # 能解码到底才算数（截断的文件前半段往往照样能播）
-    r = subprocess.run(["ffmpeg", "-v", "error", "-i", out_mp3, "-f", "null", "-"],
-                       capture_output=True, text=True)
-    if r.stderr.strip():
-        print("    音频解码有错：" + r.stderr.strip()[-120:])
-        return False
+    # 不做"解码一遍看有没有报错"——NHK 的 AAC 流本来就解不干净（env_facs_q / channel
+    # element 报错），正是为此才改成拷贝流。拿解码结果验收会把完整的文件判成坏的。
     return True
 
 
@@ -219,8 +215,11 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     manifest, text = media_playlist(tokenized, text, z_at)   # 主清单 → 变体清单，否则拿不到分片时长
     want = m3u8_duration(text)          # 播放列表自带标准答案，用它验收
 
-    # 方式一：直接把带 token 的地址给 ffmpeg
-    r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_mp3],
+    # 方式一：直接把带 token 的地址给 ffmpeg。
+    # 用 -c:a copy 拷贝原始 AAC，不解码也不重编码：ffmpeg 的 AAC 解码器在 NHK 的流上
+    # 会报 env_facs_q / channel element 错误并丢帧，实测一篇 60.16s 的转码后只剩 58.37s，
+    # 每次都一样。拷贝流下来是 60.20s，一秒不少，而且没有二次有损压缩。
+    r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "copy", out_mp3],
                        capture_output=True, text=True)
     if r.returncode == 0 and audio_ok(out_mp3, want):
         return
@@ -230,13 +229,14 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
         s = ln.strip()
         if s and not s.startswith("#"):
             s = urllib.parse.urljoin(manifest, s)
-            s += ("&" if "?" in s else "?") + f"hdnts={hdnts}"
+            if "hdntl=" not in s:      # 变体清单的分片地址路径里自带 hdntl，再追加会破坏签名
+                s += ("&" if "?" in s else "?") + f"hdnts={hdnts}"
         lines.append(s)
     local = out_mp3 + ".m3u8"
     with open(local, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     r = subprocess.run(common + ["-protocol_whitelist", "file,http,https,tcp,tls,crypto",
-                                 "-i", local, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_mp3],
+                                 "-i", local, "-vn", "-c:a", "copy", out_mp3],
                        capture_output=True, text=True)
     os.remove(local)
     if r.returncode != 0:
@@ -246,6 +246,60 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
                            "稍后重试；反复失败多半是 z_at 过期")
 
 
+def redownload(root: str, cookie: str, z_at: str) -> None:
+    """重下 news/ 里已有文章的音频。
+
+    文件名保持不变——.align.json 缓存和 segments/ 里参考句的 src 都按路径引用，
+    改名会全部失效。先下到临时文件验收，通过了才替换；内容变了就删掉对齐缓存，
+    因为旧的逐拍时间戳已经对不上新音频了。
+    """
+    import glob
+    txts = sorted(glob.glob(os.path.join(root, "*", "*.txt")))
+    if not txts:
+        print(f"{root} 里没有文章")
+        return
+    for txt in txts:
+        base = txt[:-4]
+        old_mp3 = base + ".mp3"
+        mp3 = base + ".m4a" if os.path.exists(base + ".m4a") else old_mp3
+        name = os.path.basename(base)
+        try:
+            url = open(txt, encoding="utf-8").read().split("\n")[1].strip()
+            m = re.search(r"/easy/([^/]+)/", url)
+            if not url.startswith("http") or not m:
+                print(f"  {name}: txt 第 2 行不是文章地址，跳过")
+                continue
+            aid = m.group(1)
+            page = http_get(url, cookie).decode("utf-8")
+            uri = voice_uri(page, aid, cookie)
+            if not uri:
+                print(f"  {name}: 这篇没有音频")
+                continue
+            old = mp3_duration(mp3) if os.path.exists(mp3) else 0.0
+            tmp = base + ".new.m4a"   # 后缀决定 ffmpeg 的输出容器，不能随便起
+            download_audio(uri, z_at, tmp)           # 内含完整性校验，不过会抛错
+            new = mp3_duration(tmp)
+            same = os.path.exists(mp3) and open(mp3, "rb").read() == open(tmp, "rb").read()
+            if same:
+                os.remove(tmp)
+                print(f"  {name}: 和本地完全相同（{new:.2f}s）")
+                continue
+            os.replace(tmp, base + ".m4a")
+            if os.path.exists(old_mp3) and old_mp3 != base + ".m4a":
+                os.remove(old_mp3)          # 老的转码版已被无损版取代
+            cache = base + ".align.json"
+            note = ""
+            if os.path.exists(cache):
+                os.remove(cache)
+                note = "，已清掉对齐缓存（需重新对齐）"
+            print(f"  {name}: 已更新 {old:.2f}s → {new:.2f}s{note}")
+        except Exception as e:
+            for junk in (base + ".new.m4a",):
+                if os.path.exists(junk):
+                    os.remove(junk)
+            print(f"  {name}: 失败 {e}")
+
+
 # ---------- 主流程 ----------
 def main():
     ap = argparse.ArgumentParser()
@@ -253,18 +307,30 @@ def main():
     ap.add_argument("-d", "--dir", default="news")
     ap.add_argument("--no-audio", action="store_true")
     ap.add_argument("--no-furigana", action="store_true")
+    ap.add_argument("--url", help="只抓这一篇（粘 NHK 文章地址）")
+    ap.add_argument("--redo", action="store_true",
+                    help="不抓新的，改为重下 --dir 里已有文章的音频（文件名不变）")
     args = ap.parse_args()
 
     cookie, z_at = load_auth()
     if not cookie:
         print(f"没找到 {AUTH_FILE}，只能抓到标题，正文和音频需要 cookie。配置方法见脚本顶部。")
 
-    try:
-        articles = latest_article_urls(args.n)
-    except Exception as e:
-        sys.exit(f"读取 sitemap 失败: {e}")
-    if not articles:
-        sys.exit("sitemap 里没找到文章，NHK 可能又改了地址格式。")
+    if args.redo:
+        return redownload(args.dir, cookie, z_at)
+
+    if args.url:
+        m = re.search(r"/easy/([^/]+)/", args.url)
+        if not m:
+            sys.exit("地址里找不到文章 id，应该形如 .../news/easy/20260917de50789/20260917de50789.html")
+        articles = [(m.group(1), args.url)]
+    else:
+        try:
+            articles = latest_article_urls(args.n)
+        except Exception as e:
+            sys.exit(f"读取 sitemap 失败: {e}")
+        if not articles:
+            sys.exit("sitemap 里没找到文章，NHK 可能又改了地址格式。")
 
     for i, (aid, url) in enumerate(articles, 1):
         date = id_date(aid)
@@ -294,7 +360,7 @@ def main():
             print("    没有音频（这篇可能本来就没朗读）")
             continue
         try:
-            download_audio(uri, z_at, base + ".mp3")
+            download_audio(uri, z_at, base + ".m4a")
             print("    音频 OK")
         except urllib.error.HTTPError as e:
             print(f"    音频失败 HTTP {e.code}" + ("（z_at 过期，重新复制）" if e.code in (401, 403) else ""))
