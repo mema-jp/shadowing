@@ -9,3 +9,6 @@ pykakasi>=2.2
 # 调型词典（模式② 的目标高低、模式③ 的目标台阶）。词典首次运行时下载约 23MB，解压后 107MB。
 # 内含 NAIST 日本語辞書（3-clause BSD）和 Open JTalk（Modified BSD）。
 pyopenjtalk>=0.4
+
+# 可选：AI 教学建议（tutor.py）。不装则退回内置的规则反馈。
+anthropic

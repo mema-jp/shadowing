@@ -260,6 +260,7 @@ details.other>*:not(summary){margin:0 15px 15px}
 .stair .hd span{font-size:11.5px;color:var(--ink4)}
 .stair .lg{display:flex;gap:14px;font-size:11px;color:var(--ink4);margin-bottom:2px}
 .metric .sub{font-size:11px;color:var(--ink5);margin-top:3px;line-height:1.4}
+.onething .tx .why{display:block;margin-top:6px;font-size:12px;color:var(--ink5);line-height:1.5}
 .stair .lg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .stair svg{width:100%;height:58px;display:block}
 .stair .kn{display:grid;text-align:center;margin-top:-1px}
@@ -651,6 +652,7 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
 
 <script>
 const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 const state = { news: [], segments: [], article: null, ref: null, rec: null, chunks: [], history: {},
                 combo: 0, kanaAll: false, lang: localStorage.getItem('lang') || 'zh',
                 level: localStorage.getItem('level') || 'normal',
@@ -1783,6 +1785,18 @@ function renderOneThing(r) {
   v.className = 'onething' + (t.ok ? ' ok' : '');
   $('oneKick').textContent = t.ok ? T('oneOk') : T('oneKick');
   const D2 = DYN[state.lang].one;
+  // 后端配了模型就用模型的建议——规则只会挑「当次偏差最大的一拍」，
+  // 常有四五拍偏得一样多，它分不清哪个在语言学上更要紧（实测单次挑选
+  // 随机分半只有 14% 选出同一拍）。拿不到就还用规则版。
+  if (r.tutor && r.tutor.focus) {
+    $('oneKick').textContent = t.ok ? T('oneOk') : T('oneKick');
+    $('verdictTx').innerHTML = `<b>${esc(r.tutor.focus)}</b><br>${esc(r.tutor.how)}` +
+      (r.tutor.why ? `<span class="why">${esc(r.tutor.why)}</span>` : '');
+    $('takesLine').textContent = r.takes.length > 1
+      ? D('takes')(r.takes.length, r.best_take.start, r.best_take.end) : '';
+    $('oneActs').hidden = true;
+    return;
+  }
   $('verdictTx').textContent =
     t.ok ? D2.ok()
     : t.kind === 'pitch' ? (t.run >= 2 ? D2.pitch2(t.mora, t.up) : D2.pitch(t.mora, t.up))

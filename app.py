@@ -45,6 +45,7 @@ else:
 os.chdir(ROOT)
 sys.path.insert(0, CODE)
 import compare_pitch  # noqa: E402
+import tutor  # noqa: E402
 import align_mora  # noqa: E402
 import accent  # noqa: E402
 
@@ -777,6 +778,17 @@ class H(BaseHTTPRequestHandler):
                 history_append({**{k: v for k, v in r.items() if k not in ("ref_curve", "my_curve", "t")},
                                 "type": "sentence"})
                 prune_recordings(("sentence", r["ref"]))
+                # 交给模型出教学建议。拿不到就不加这个字段，前端退回规则版的「只改一件事」，
+                # 不让一次网络抖动把录音结果卡住。
+                if tutor.available():
+                    try:
+                        tgt = target_levels(r["ref"])
+                        tgt["text"] = json.load(open(r["ref"] + ".json", encoding="utf-8")).get("label", "")
+                        tip = tutor.advise(r, tgt, history_read(r["ref"]))
+                        if tip:
+                            r["tutor"] = tip
+                    except Exception:
+                        pass
                 return self.send_json(r)
 
             if u.path == "/api/pron":
