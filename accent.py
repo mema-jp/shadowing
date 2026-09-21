@@ -23,6 +23,8 @@ for _row, _v in [("あかさたなはまやらわがざだばぱ", "あ"), ("い
                  ("おこそとのほもよろをごぞどぼぽ", "お")]:
     for _c in _row:
         _VOWEL[_c] = _v
+# 拗音的小书假名也要给出元音，否则「ちゅう」这种认不出长音（'ちゅ'[-1] 是 'ゅ'）
+_VOWEL.update({"ゃ": "あ", "ゅ": "う", "ょ": "お", "ぇ": "え", "ぃ": "い", "ぁ": "あ", "ぉ": "お"})
 
 
 def available() -> bool:
@@ -87,6 +89,10 @@ def normalize(moras: list) -> list:
 
     对齐模型的拍来自 NHK 注音（とおい、は），OpenJTalk 给的是音素写法（とーい、わ）。
     不归一化只有 23% 对得上，归一化后是 89%。
+
+    长音除了「同元音相连」，还要认 おう→オー 和 えい→エー——日语里这两个极常见
+    （こう、とう、せい…），不认的话「中央銀行」会在 ちゅ|う、お|う、こ|う 处断三次。
+    两边用的是同一个归一化，所以把「思う」这种并非长音的也一并归并不会造成错配。
     """
     out = []
     for m in moras:
@@ -94,7 +100,7 @@ def normalize(moras: list) -> list:
         if out and len(c) == 1 and c in "あいうえお":
             prev = out[-1]
             base = _VOWEL.get(prev[-1]) if prev != "ー" else None
-            if base == c:
+            if base == c or (base == "お" and c == "う") or (base == "え" and c == "い"):
                 c = "ー"
         out.append(c)
     return out
