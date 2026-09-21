@@ -91,6 +91,37 @@ def article_alignment(mp3: str):
     return None
 
 
+def _drop_contradicted(src: str, al: list, levels: list, margin: float = 2.0) -> list:
+    """词典说「低」但播音员明显读高（或反过来）的拍，一律改成 None：不画也不判。
+
+    两个真相来源不一致时装作知道答案，等于让人照着一个自己都做不到的目标练
+    ——实测一篇 240 个有目标的拍里约 29% 矛盾、16% 明显矛盾（差 2 个半音以上），
+    而这些拍正是练多少遍都"改不掉"的。矛盾的原因还没查清，所以只做一件事：不判。
+
+    margin 是半音；只排除明显矛盾的，贴着分界线的不动（那属于测量噪声）。
+    """
+    import numpy as np
+    try:
+        t, f0, _ = compare_pitch.analyze(compare_pitch.load(src))
+    except Exception:
+        return levels
+    med = np.nanmedian(f0)
+    if not med or np.isnan(med):
+        return levels
+    semi = 12 * np.log2(f0 / med)
+    out = list(levels)
+    for i, m in enumerate(al):
+        if i >= len(out) or out[i] is None:
+            continue
+        sel = (t >= m["start"]) & (t <= m["end"]) & ~np.isnan(semi)
+        if not sel.any():
+            continue
+        p = float(np.mean(semi[sel]))
+        if abs(p) >= margin and (1 if p >= 0 else 0) != out[i]:
+            out[i] = None
+    return out
+
+
 def target_levels(ref: str) -> dict:
     """参考句的目标调型（高/低两档），给「目标台阶」用。
 
@@ -118,6 +149,7 @@ def target_levels(ref: str) -> dict:
     with open(txt, encoding="utf-8") as f:
         body = "".join(f.read().split("\n")[2:])      # 去掉标题、链接
     all_levels = accent.align_to([m["mora"] for m in al], body)
+    all_levels = _drop_contradicted(src, al, all_levels)
     a, b = info["start"], info["end"]
     kana, levels = [], []
     for i, m in enumerate(al):
