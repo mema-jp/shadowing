@@ -262,6 +262,7 @@ details.other>*:not(summary){margin:0 15px 15px}
 .stair .lg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .stair svg{width:100%;height:58px;display:block}
 .stair .kn{display:grid;text-align:center;margin-top:-1px}
+.stair .strow + .strow{margin-top:10px}   /* 折行：长句一行放不下 */
 .stair .kn span{white-space:nowrap;font-size:20px;line-height:1.4}
 .stair .kn span.dbl{font-size:15px;letter-spacing:-.04em}
 .stair .kn span.bad{color:var(--bad)}
@@ -1706,41 +1707,55 @@ function renderStair(el, d, opt = {}) {
   const n = kana.length;
   if (!n) { el.hidden = true; return; }
   el.hidden = false;
-  const W = 420, slot = W / n, HI = 15, LO = 44;
+  const user2 = user ? user.map((v, i) => levels[i] == null ? null : (v == null ? levels[i] : v)) : null;
+  const wrong = i => user && user[i] != null && levels[i] != null && user[i] !== levels[i];
+  const done = !!user;
+  const tint = opt.color || '#2a78d6';                     // 对比词用别的颜色，免得和"要练的目标"混淆
+  // 一行最多放这么多拍。不折行的话长句会把假名挤成一团——实测一句 60 拍时完全看不清。
+  const PER = opt.per || 16;
+  const rowN = Math.ceil(n / PER);
+  const per = Math.ceil(n / rowN);        // 均摊到各行，免得最后一行只剩一两拍
+  const small = opt.small != null ? opt.small : per >= 12;
+  el.className = 'stair' + (small ? ' small' : '') + (opt.color ? ' alt' : '');
+
+  const W = 420, HI = 15, LO = 44, slot = W / per;
   const yOf = v => (v ? HI : LO);
   // 词典对不上的拍是 null：断开，不画也不判错——宁可留空也不瞎画
-  const segs = (arr, dy) => {
+  const segs = (arr, dy, s, e) => {
     const out = []; let cur = [];
-    arr.forEach((v, i) => {
-      if (v == null) { if (cur.length) out.push(cur); cur = []; return; }
-      cur.push(`${(i * slot).toFixed(1)},${yOf(v) + dy} ${((i + 1) * slot).toFixed(1)},${yOf(v) + dy}`);
-    });
+    for (let i = s; i < e; i++) {
+      const v = arr[i];
+      if (v == null) { if (cur.length) out.push(cur); cur = []; continue; }
+      const x = (i - s) * slot;
+      cur.push(`${x.toFixed(1)},${yOf(v) + dy} ${(x + slot).toFixed(1)},${yOf(v) + dy}`);
+    }
     if (cur.length) out.push(cur);
     return out;
   };
-  const wrong = i => user && user[i] != null && levels[i] != null && user[i] !== levels[i];
-  const done = !!user;
-  const small = opt.small != null ? opt.small : n >= 11;   // 长句用小号，否则假名会挤
-  const tint = opt.color || '#2a78d6';                     // 对比词用别的颜色，免得和"要练的目标"混淆
-  el.className = 'stair' + (small ? ' small' : '') + (opt.color ? ' alt' : '');
 
-  const bands = !done ? '' : levels.map((_, i) => wrong(i)
-    ? `<rect x="${(i * slot).toFixed(1)}" y="6" width="${slot.toFixed(1)}" height="52" rx="4" fill="rgba(214,74,58,.09)"/>` : '').join('');
-  const svg =
-    `<svg viewBox="0 0 ${W} 58" preserveAspectRatio="none" aria-hidden="true">` + bands +
-    `<line x1="0" y1="${HI}" x2="${W}" y2="${HI}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
-    `<line x1="0" y1="${LO}" x2="${W}" y2="${LO}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
-    segs(levels, 0).map(s => `<polyline points="${s.join(' ')}" fill="none" stroke="${tint}" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" opacity="${done ? .4 : 1}"/>`).join('') +
-    (done ? segs(user.map((v, i) => levels[i] == null ? null : (v == null ? levels[i] : v)), 3)
-      .map(s => `<polyline points="${s.join(' ')}" fill="none" stroke="#d64a3a" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/>`).join('') : '') +
-    `</svg>`;
-  const row = `<div class="kn" style="grid-template-columns:repeat(${n},minmax(0,1fr))">` +
-    kana.map((k, i) => `<span class="${k.length > 1 ? 'dbl' : ''}${wrong(i) ? ' bad' : ''}${levels[i] == null ? ' unk' : ''}">${k}</span>`).join('') + '</div>';
+  let body = '';
+  for (let r = 0; r < rowN; r++) {
+    const s = r * per, e = Math.min(s + per, n), cnt = e - s, w = slot * cnt;
+    const bands = !done ? '' : Array.from({ length: cnt }, (_, k) => wrong(s + k)
+      ? `<rect x="${((k) * slot).toFixed(1)}" y="6" width="${slot.toFixed(1)}" height="52" rx="4" fill="rgba(214,74,58,.09)"/>` : '').join('');
+    const svg =
+      `<svg viewBox="0 0 ${w.toFixed(1)} 58" preserveAspectRatio="none" aria-hidden="true">` + bands +
+      `<line x1="0" y1="${HI}" x2="${w.toFixed(1)}" y2="${HI}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
+      `<line x1="0" y1="${LO}" x2="${w.toFixed(1)}" y2="${LO}" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="4 4"/>` +
+      segs(levels, 0, s, e).map(x => `<polyline points="${x.join(' ')}" fill="none" stroke="${tint}" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" opacity="${done ? .4 : 1}"/>`).join('') +
+      (done ? segs(user2, 3, s, e).map(x => `<polyline points="${x.join(' ')}" fill="none" stroke="#d64a3a" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/>`).join('') : '') +
+      `</svg>`;
+    const grid = `<div class="kn" style="grid-template-columns:repeat(${cnt},minmax(0,1fr))">` +
+      kana.slice(s, e).map((k, k2) => { const i = s + k2;
+        return `<span class="${k.length > 1 ? 'dbl' : ''}${wrong(i) ? ' bad' : ''}${levels[i] == null ? ' unk' : ''}">${k}</span>`; }).join('') + '</div>';
+    // 行宽按本行拍数缩，这样每一拍的实际宽度各行一致（否则最后一行会被拉宽，对不齐）
+    body += `<div class="strow" style="width:${(cnt / per * 100).toFixed(3)}%">${svg}${grid}</div>`;
+  }
   const lg = done ? `<div class="lg"><span><i style="background:#2a78d6"></i>${T('stTarget')}</span><span><i style="background:#d64a3a"></i>${T('stYou')}</span></div>` : '';
   const title = opt.title || (done ? T('stTitleDone') : T('stTitle'));
   const hint = opt.hint === false ? '' : (opt.hint || T('stHint'));
   el.innerHTML =
-    `<div class="hd"><b style="color:${tint}">${title}</b><span>${hint}</span></div>` + lg + svg + row;
+    `<div class="hd"><b style="color:${tint}">${title}</b><span>${hint}</span></div>` + lg + body;
 }
 
 /* ===================== 音高曲线 ===================== */
