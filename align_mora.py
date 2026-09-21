@@ -12,6 +12,7 @@
 import argparse
 import json
 import collections
+import os
 import re
 import sys
 import unicodedata
@@ -151,12 +152,20 @@ def _load_model():
 
 
 def load_audio_16k(path: str) -> np.ndarray:
+    """Praat 只认 wav/aiff 一类，.m4a/.aac 要先过一道 ffmpeg。
+    统一走 compare_pitch.to_wav，别再直接把路径丢给 parselmouth。"""
     import parselmouth
-    snd = parselmouth.Sound(path)
-    if snd.n_channels > 1:
-        snd = snd.convert_to_mono()
-    snd = snd.resample(16000)
-    return snd.values[0].astype(np.float32)
+    import compare_pitch
+    wav = compare_pitch.to_wav(path)
+    try:
+        snd = parselmouth.Sound(wav)
+        if snd.n_channels > 1:
+            snd = snd.convert_to_mono()
+        snd = snd.resample(16000)
+        return snd.values[0].astype(np.float32)
+    finally:
+        if wav != path and os.path.exists(wav):
+            os.remove(wav)
 
 
 def align_tokens(emission, token_ids: list, token_groups: list):
