@@ -11,6 +11,7 @@
 """
 import argparse
 import json
+import collections
 import re
 import sys
 import unicodedata
@@ -123,6 +124,10 @@ def mora_to_tokens(mora: list) -> list:
         elif m == "ー":
             prev = out[-1] if out else "a"
             out.append(prev[-1] if prev[-1] in "aiueo" else "a")
+        elif m == "う" and out and out[-1][-1] == "o":
+            out.append("o")          # おう＝オー，和前一拍是同一个元音
+        elif m == "い" and out and out[-1][-1] == "e":
+            out.append("e")          # えい＝エー
         else:
             out.append(_ROMA.get(m, "a"))
     return out
@@ -207,19 +212,34 @@ def align(audio_path: str, text: str) -> list:
     toks = mora_to_tokens(mora)
     bundle, model = _load_model()
     dictionary = bundle.get_dict(star=None)
-    ids, groups = [], []
-    for t in toks:
+    # 长音的后半拍和前一拍是同一个元音。CTC 要求相邻的相同 token 之间必须有 blank，
+    # 硬分开的结果是后半拍退化成 ~20ms、确信度接近 0——拿一定念了那个词的合成音实测
+    # 也是如此，所以那个低分是对齐假象，不代表音频里没有。这里合成一个 token 让它
+    # 自然占满整个长音，事后再把跨度均分回两拍。
+    ids, groups, owner = [], [], []
+    for i, t in enumerate(toks):
+        if i and len(t) == 1 and t == toks[i - 1][-1:]:
+            owner.append(len(groups) - 1)          # 并入前一拍，不单独成组
+            continue
         ids.extend(dictionary[c] for c in t)
         groups.append(len(t))
+        owner.append(len(groups) - 1)
     audio = load_audio_16k(audio_path)
     wav = torch.from_numpy(audio).unsqueeze(0)
     with torch.inference_mode():
         emission, _ = model(wav)
     emission = torch.log_softmax(emission[0], dim=-1)
     ratio = wav.shape[1] / emission.shape[0] / 16000  # 每帧多少秒
-    res = []
-    for m, (a, b, sc) in zip(mora, align_tokens(emission, ids, groups)):
-        res.append({"mora": m, "start": round(a * ratio, 3), "end": round(b * ratio, 3), "score": round(sc, 2)})
+    spans = align_tokens(emission, ids, groups)
+    share = collections.Counter(owner)          # 每个组被几拍共用
+    res, used = [], {}
+    for m, g in zip(mora, owner):
+        a, b, sc = spans[g]
+        k = share[g]
+        j = used.get(g, 0)
+        used[g] = j + 1
+        aa, bb = a + (b - a) * j / k, a + (b - a) * (j + 1) / k
+        res.append({"mora": m, "start": round(aa * ratio, 3), "end": round(bb * ratio, 3), "score": round(sc, 2)})
     return _trim_pauses(res, audio)
 
 

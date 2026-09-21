@@ -155,8 +155,25 @@ def mint_token(manifest: str, z_at: str) -> str:
 
 
 def m3u8_duration(text: str) -> float:
-    """播放列表里每个分片的 #EXTINF 之和 = 这段音频应有的时长。"""
+    """播放列表里每个分片的 #EXTINF 之和 = 这段音频应有的时长。主清单没有分片，返回 0。"""
     return sum(float(m) for m in re.findall(r"#EXTINF:([\d.]+)", text))
+
+
+def media_playlist(man: str, text: str, z_at: str) -> tuple[str, str]:
+    """NHK 给的是主清单（只列码率变体），分片在变体清单里。
+    不跟进的话 m3u8_duration 恒为 0，完整性校验会变成"没给时长就放行"，等于没验。
+    返回 (变体清单地址, 内容)；本来就是媒体清单就原样返回。"""
+    if m3u8_duration(text) > 0:
+        return man, text
+    for ln in text.splitlines():
+        s = ln.strip()
+        if s and not s.startswith("#"):
+            sub = urllib.parse.urljoin(man, s)
+            try:
+                return sub, http_get(sub + ("&" if "?" in sub else "?") + f"hdnts={mint_token(sub, z_at)}").decode("utf-8")
+            except Exception:
+                return man, text
+    return man, text
 
 
 def mp3_duration(path: str) -> float:
@@ -199,6 +216,7 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     common = ["ffmpeg", "-y", "-loglevel", "error", "-user_agent", UA,
               "-headers", f"Referer: {BASE}/news/easy/\r\n"]
     text = http_get(tokenized).decode("utf-8")
+    manifest, text = media_playlist(tokenized, text, z_at)   # 主清单 → 变体清单，否则拿不到分片时长
     want = m3u8_duration(text)          # 播放列表自带标准答案，用它验收
 
     # 方式一：直接把带 token 的地址给 ffmpeg

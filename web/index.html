@@ -278,9 +278,11 @@ details.other>*:not(summary){margin:0 15px 15px}
 /* 高度不写死：卡片可被压缩，压缩量由正文区吸收并在内部滚动，
    这样中栏永远不溢出，也不用跟着视口高度去调魔法数字。上限 ~220px 正文（规格要求的宽松值）。 */
 .bodycard{background:var(--bg-card);border:1px solid var(--line-strong);border-radius:12px;padding:14px 16px 12px;
-  flex:0 1 auto;min-height:0;max-height:292px;display:flex;flex-direction:column}
+  flex:0 1 auto;min-height:0;max-height:340px;display:flex;flex-direction:column}
 .bodycard .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px;flex:none}
 .bodycard .body{flex:1;min-height:56px;overflow-y:auto;font-size:17px;line-height:2.1;color:var(--ink2);position:relative}
+.bodycard .para{margin:0 0 14px}        /* 段间留白：NHK 的正文一段一句，比挤成一块好读 */
+.bodycard .para:last-child{margin-bottom:0}
 .bodycard .foot{font-size:11px;color:var(--ink6);margin-top:8px;flex:none}
 .bodycard rt{font-size:9px;color:var(--ink4)}
 .bodycard.noruby rt{visibility:hidden}
@@ -972,13 +974,20 @@ function renderArticle() {
     el.innerHTML = `<span class="sent cur dead">${state.ref.text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</span>`;
     return;
   }
-  const sents = splitSentences(state.articleRaw || '');
+  // 按原文的段落分块（NHK 一段一句，段间留白，比挤成一整块好读得多）。
+  // 句子仍是扁平一串，sentSpans 的下标要和它对齐。
+  const paras = (state.articleRaw || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const sents = [], paraOf = [];
+  paras.forEach((p, pi) => splitSentences(p).forEach(s => { sents.push(s); paraOf.push(pi); }));
   state.sentSpans = mapSentencesToChunks(sents);
-  el.innerHTML = sents.map((s, i) => {
-    let h = s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-    h = h.replace(/([一-龥々]+)（([ぁ-ゖー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
-    return `<span class="sent${state.sentSpans[i] ? '' : ' dead'}" data-i="${i}">${h}</span>`;
-  }).join('');
+  let out = '', cur = -1;
+  sents.forEach((s, i) => {
+    let t = s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    t = t.replace(/([一-龥々]+)（([ぁ-ゖー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
+    if (paraOf[i] !== cur) { if (cur >= 0) out += '</p>'; out += '<p class="para">'; cur = paraOf[i]; }
+    out += `<span class="sent${state.sentSpans[i] ? '' : ' dead'}" data-i="${i}">${t}</span>`;
+  });
+  el.innerHTML = out + (cur >= 0 ? '</p>' : '');
   el.querySelectorAll('.sent').forEach(sp => {
     const span = state.sentSpans[+sp.dataset.i];
     if (span) sp.onclick = () => saveSegment(span[0], span[1]);
