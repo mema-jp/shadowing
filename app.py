@@ -53,7 +53,7 @@ for d in ("news", "segments", "recordings", "results", "refs"):
     os.makedirs(d, exist_ok=True)
 
 MIME = {".html": "text/html; charset=utf-8", ".mp3": "audio/mpeg", ".wav": "audio/wav",
-        ".m4a": "audio/mp4", ".webm": "audio/webm", ".png": "image/png", ".txt": "text/plain; charset=utf-8"}
+        ".m4a": "audio/mp4", ".aac": "audio/aac", ".webm": "audio/webm", ".png": "image/png", ".txt": "text/plain; charset=utf-8"}
 
 
 def safe(rel: str) -> str:
@@ -74,7 +74,7 @@ def list_news():
             if f.endswith(".txt"):
                 base = f[:-4]
                 # 抓取用拷贝流（不转码）保存成 .m4a；老文件是 .mp3，两种都要认
-                mp3 = next((os.path.join(d, base + e) for e in (".m4a", ".mp3")
+                mp3 = next((os.path.join(d, base + e) for e in (".m4a", ".aac", ".mp3")
                             if os.path.exists(os.path.join(d, base + e))), os.path.join(d, base + ".mp3"))
                 with open(os.path.join(d, f), encoding="utf-8") as fh:
                     title = fh.readline().strip()
@@ -533,7 +533,7 @@ def prune_recordings(target=None) -> int:
 def list_segments():
     out = []
     for f in sorted(os.listdir("segments"), key=lambda x: os.path.getmtime(os.path.join("segments", x)), reverse=True):
-        if f.endswith((".mp3", ".wav", ".m4a")):
+        if f.endswith((".mp3", ".wav", ".m4a", ".aac")):
             meta = os.path.join("segments", f + ".json")
             info = json.load(open(meta, encoding="utf-8")) if os.path.exists(meta) else {}
             out.append({"path": os.path.join("segments", f), "name": f, **info})

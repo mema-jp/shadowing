@@ -193,7 +193,9 @@ def audio_ok(out_mp3: str, want: float) -> bool:
     if want <= 0:                       # 播放列表没给时长，只能退回旧判据
         return True
     got = mp3_duration(out_mp3)
-    if got < want * 0.98:
+    # 阈值放到 95%：清单声明的时长含容器开销，会高估实际音频（实测一篇声明 65.64s，
+    # 真正解出来 64.26s）。掉一个 5.6s 分片仍然会低于 90%，拦得住。
+    if got < want * 0.95:
         print(f"    音频不完整：应有 {want:.1f}s，只下到 {got:.1f}s")
         return False
     # 不做"解码一遍看有没有报错"——NHK 的 AAC 流本来就解不干净（env_facs_q / channel
@@ -201,7 +203,7 @@ def audio_ok(out_mp3: str, want: float) -> bool:
     return True
 
 
-def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
+def download_audio(uri: str, z_at: str, out_mp3: str) -> str:
     stem = os.path.splitext(os.path.basename(uri))[0]
     manifest = f"{HLS_BASE}/{stem}/index.m3u8"
     if not z_at:
@@ -219,10 +221,19 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     # 用 -c:a copy 拷贝原始 AAC，不解码也不重编码：ffmpeg 的 AAC 解码器在 NHK 的流上
     # 会报 env_facs_q / channel element 错误并丢帧，实测一篇 60.16s 的转码后只剩 58.37s，
     # 每次都一样。拷贝流下来是 60.20s，一秒不少，而且没有二次有损压缩。
-    r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "copy", out_mp3],
-                       capture_output=True, text=True)
-    if r.returncode == 0 and audio_ok(out_mp3, want):
-        return
+    #
+    # 容器优先 .m4a（浏览器最稳），但把 HLS 的 ADTS AAC 塞进 mp4 需要 aac_adtstoasc
+    # 比特流过滤器，某些 AAC 配置下 ffmpeg 会报 "Not yet implemented"，这时退到
+    # .aac（ADTS 原样装，不需要转换，浏览器同样能放）。
+    stem_out = os.path.splitext(out_mp3)[0]
+    for ext in (".m4a", ".aac"):
+        out = stem_out + ext
+        r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "copy", out],
+                           capture_output=True, text=True)
+        if r.returncode == 0 and audio_ok(out, want):
+            return out
+        if os.path.exists(out):
+            os.remove(out)
     # 方式二：把 m3u8 下载到本地，每个分片地址后面都补上 token
     lines = []
     for ln in text.splitlines():
@@ -235,15 +246,17 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     local = out_mp3 + ".m3u8"
     with open(local, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+    out = stem_out + ".aac"
     r = subprocess.run(common + ["-protocol_whitelist", "file,http,https,tcp,tls,crypto",
-                                 "-i", local, "-vn", "-c:a", "copy", out_mp3],
+                                 "-i", local, "-vn", "-c:a", "copy", out],
                        capture_output=True, text=True)
     os.remove(local)
     if r.returncode != 0:
         raise RuntimeError("ffmpeg 失败: " + r.stderr.strip()[-300:])
-    if not audio_ok(out_mp3, want):
-        raise RuntimeError(f"音频下载不完整（应有 {want:.1f}s，实得 {mp3_duration(out_mp3):.1f}s），"
+    if not audio_ok(out, want):
+        raise RuntimeError(f"音频下载不完整（应有 {want:.1f}s，实得 {mp3_duration(out):.1f}s），"
                            "稍后重试；反复失败多半是 z_at 过期")
+    return out
 
 
 def redownload(root: str, cookie: str, z_at: str) -> None:
@@ -276,25 +289,26 @@ def redownload(root: str, cookie: str, z_at: str) -> None:
                 print(f"  {name}: 这篇没有音频")
                 continue
             old = mp3_duration(mp3) if os.path.exists(mp3) else 0.0
-            tmp = base + ".new.m4a"   # 后缀决定 ffmpeg 的输出容器，不能随便起
-            download_audio(uri, z_at, tmp)           # 内含完整性校验，不过会抛错
+            tmp = download_audio(uri, z_at, base + ".new.m4a")   # 返回实际写出的路径
             new = mp3_duration(tmp)
             same = os.path.exists(mp3) and open(mp3, "rb").read() == open(tmp, "rb").read()
             if same:
                 os.remove(tmp)
                 print(f"  {name}: 和本地完全相同（{new:.2f}s）")
                 continue
-            os.replace(tmp, base + ".m4a")
-            if os.path.exists(old_mp3) and old_mp3 != base + ".m4a":
-                os.remove(old_mp3)          # 老的转码版已被无损版取代
+            final = base + os.path.splitext(tmp)[1]
+            os.replace(tmp, final)
+            for stale in (old_mp3, base + ".m4a", base + ".aac"):
+                if stale != final and os.path.exists(stale):
+                    os.remove(stale)        # 老的转码版/别的容器已被取代
             cache = base + ".align.json"
             note = ""
             if os.path.exists(cache):
                 os.remove(cache)
                 note = "，已清掉对齐缓存（需重新对齐）"
-            print(f"  {name}: 已更新 {old:.2f}s → {new:.2f}s{note}")
+            print(f"  {name}: 已更新 {old:.2f}s → {new:.2f}s（{os.path.basename(final)}）{note}")
         except Exception as e:
-            for junk in (base + ".new.m4a",):
+            for junk in (base + ".new.m4a", base + ".new.aac"):
                 if os.path.exists(junk):
                     os.remove(junk)
             print(f"  {name}: 失败 {e}")
@@ -360,8 +374,8 @@ def main():
             print("    没有音频（这篇可能本来就没朗读）")
             continue
         try:
-            download_audio(uri, z_at, base + ".m4a")
-            print("    音频 OK")
+            got = download_audio(uri, z_at, base + ".m4a")
+            print(f"    音频 OK  {os.path.basename(got)}  {mp3_duration(got):.1f}s")
         except urllib.error.HTTPError as e:
             print(f"    音频失败 HTTP {e.code}" + ("（z_at 过期，重新复制）" if e.code in (401, 403) else ""))
         except Exception as e:

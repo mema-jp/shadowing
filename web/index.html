@@ -290,6 +290,7 @@ details.other>*:not(summary){margin:0 15px 15px}
 .sent{border-radius:4px;padding:1px 2px;cursor:pointer}
 .sent:hover{background:var(--bg-card2)}
 .sent.cur{background:rgba(31,157,91,.12);box-shadow:0 0 0 1px rgba(31,157,91,.35);color:var(--ink)}
+.sent.playing{background:rgba(42,120,214,.14);box-shadow:0 0 0 1px rgba(42,120,214,.35)}  /* 整篇试听时跟读到的那句 */
 .sent.dead{cursor:default}
 .sent.dead:hover{background:transparent}
 
@@ -530,7 +531,10 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
           <div class="bodycard" id="bodyCard" hidden>
             <div class="hd">
               <div class="sec-title" data-t="bodyTitle">本文</div>
-              <button id="rubyBtn" class="btn-s" style="font-size:11px" data-t="ruby">显示注音</button>
+              <div style="display:flex;gap:6px">
+                <button id="playArticle" class="btn-s" style="font-size:11px" data-t="hearAll">▶ 听整篇</button>
+                <button id="rubyBtn" class="btn-s" style="font-size:11px" data-t="ruby">显示注音</button>
+              </div>
             </div>
             <div class="body scroll" id="articleText"></div>
             <div class="foot" data-t="bodyFoot">绿色底是正在练的那一句，点正文里的任意一句也能切过去。</div>
@@ -664,7 +668,7 @@ const STR = {
     crumbPick:"选一句", crumbPractice:"练习中", crumbDone:"已练稳",
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
-    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比", audioGone:"この録音は保存ポリシーにより削除済み", audioGone:"这一遍的录音已按保留策略清理",
+    stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比", audioGone:"这一遍的录音已按保留策略清理", hearAll:"听整篇", hearStop:"停",
     v_clear:"高低がはっきり分かれた",
     v_flat_ok:"方向は合っているが平ら",
     v_flat:"高低が分かれていない",
@@ -710,6 +714,7 @@ const STR = {
     stTitle:"目標の高低", stTitleDone:"目標とあなた（ずれた拍に色）",
     oneKick:"今回直すのは 1 つだけ", oneOk:"この文は安定しました", later:"後で", otherDiag:"その他の診断・ピッチ曲線・詳細図",
     stHint:"上の線＝高い拍　下の線＝低い拍", stTarget:"目標", stYou:"あなた", stContrast:"対比",
+    audioGone:"この録音は保存ポリシーにより削除済み", hearAll:"全文を聞く", hearStop:"停止",
     bodyTitle:"本文", bodyFoot:"緑の背景が今練習している文です。本文中のどの文をクリックしても切り替えられます。",
     manual:"手動で切り出す", markStart:"開始=現在", markEnd:"終了=現在", preview:"試聴", useIt:"これを使う",
     manualNote:"「本文」のプレーヤーで位置を合わせ、文頭で開始、文末で終了を押します。",
@@ -1043,6 +1048,30 @@ $('fetchBtn').onclick = async () => {
 
 /* ===================== 截句 ===================== */
 const aa = $('articleAudio');
+/* 整篇试听：不选句也能听，边听边跟着高亮。
+   去掉侧栏候选列表时把每条的 ▶ 一起带走了，打开文章就没法先听一遍——补回来。 */
+$('playArticle').onclick = () => {
+  if (!state.article || !state.article.mp3) return;
+  if (!aa.paused) { aa.pause(); return; }
+  if (aa.ended || aa.currentTime >= (aa.duration || 1e9) - .05) aa.currentTime = 0;
+  aa.playbackRate = $('slowBtn').classList.contains('on') ? 0.8 : 1;
+  aa.play();
+};
+function syncPlayBtn() {
+  const b = $('playArticle'); if (!b) return;
+  b.textContent = aa.paused ? '▶ ' + T('hearAll') : '❚❚ ' + T('hearStop');
+  b.classList.toggle('on', !aa.paused);
+}
+['play', 'pause', 'ended'].forEach(e => aa.addEventListener(e, syncPlayBtn));
+aa.addEventListener('timeupdate', () => {
+  if (aa.paused || !state.sentSpans) return;
+  const t = aa.currentTime;
+  const i = state.sentSpans.findIndex(s => s && t >= s[0] && t <= s[1]);
+  const el = $('articleText'); if (!el) return;
+  el.querySelectorAll('.sent').forEach(sp => sp.classList.toggle('playing', +sp.dataset.i === i));
+});
+aa.addEventListener('pause', () => $('articleText') &&
+  $('articleText').querySelectorAll('.sent.playing').forEach(sp => sp.classList.remove('playing')));
 $('markStart').onclick = () => $('segStart').value = aa.currentTime.toFixed(1);
 $('markEnd').onclick = () => $('segEnd').value = aa.currentTime.toFixed(1);
 $('previewSeg').onclick = () => {
