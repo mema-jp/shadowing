@@ -471,8 +471,7 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
           <div class="sec-title" data-t="chunks">切出来的句子</div>
           <div class="sec-note" id="alignMsg"></div>
         </div>
-        <div class="chunk-list" id="chunkList"></div>
-        <div class="sec-note" style="margin-top:8px" id="chunkNote" data-t="chunkNote">1–3 秒的最好练。带 ⚠ 的偏长，可以先在手动截取里切短。</div>
+        <div class="sec-note" id="chunkNote" data-t="chunkNote">点正文里的任意一句就开始练那一句。</div>
         <button id="alignBtn" class="btn-s" style="margin-top:8px" hidden data-t="alignDo">按假名对齐这篇</button>
       </div>
 
@@ -653,7 +652,7 @@ const STR = {
   zh: { app:"シャドーイング練習", step1:"選材", step2short:"練習", step3:"次の文",
     sentTotal:"练过", sentUnit:"句", takes:"录音", quit:"退出程序",
     news:"ニュース", fetch:"抓今天的", noNews:"还没有新闻。点上面抓一次，或先在终端运行 fetch_nhk.py",
-    chunks:"切出来的句子", chunkNote:"1–3 秒的最好练。带 ⚠ 的偏长，可以先在手动截取里切短。",
+    chunks:"本文から選ぶ", chunkNote:"点正文里的任意一句就开始练那一句。偏长的句子可以在手动截取里切短。",
     aligned:"已按假名对齐", alignDo:"按假名对齐这篇", ruby:"显示注音", rubyOff:"隐藏注音",
     source:"素材", collapse:"收起", expand:"展开", addSource:"加素材",
     lvEasy:"入门", lvNormal:"标准", lvHard:"严格",
@@ -698,7 +697,7 @@ const STR = {
   ja: { app:"シャドーイング練習", step1:"素材", step2short:"練習", step3:"次の文",
     sentTotal:"練習", sentUnit:"文", takes:"録音", quit:"終了",
     news:"ニュース", fetch:"今日の分を取得", noNews:"まだニュースがありません。上のボタンか、端末で fetch_nhk.py を実行してください。",
-    chunks:"区切られた文", chunkNote:"1〜3 秒がいちばん練習しやすい。⚠ は長いので手動で短く切ってもよい。",
+    chunks:"本文から選ぶ", chunkNote:"本文の文をクリックするとその文の練習が始まります。長い文は手動で短く切ることもできます。",
     aligned:"仮名で整列済み", alignDo:"この記事を仮名で整列", ruby:"ふりがな", rubyOff:"ふりがなを隠す",
     source:"素材", collapse:"折りたたむ", expand:"開く", addSource:"素材を追加",
     lvEasy:"やさしい", lvNormal:"ふつう", lvHard:"きびしい",
@@ -909,24 +908,10 @@ $('alignBtn').onclick = async () => {
     } else { $('alignMsg').textContent = '对齐失败: ' + (st.msg || st.state); $('alignBtn').disabled = false; $('alignBtn').textContent = T('alignDo'); }
   }, 1000);
 };
+// 句子候选不再单独列一遍——正文里点哪句练哪句，侧栏列一份是同一个选择的重复。
+// state.chunks 仍然要取：正文的句子靠它对到音频上（见 mapSentencesToChunks）。
 function renderChunks(done) {
   renderMini();
-  const el = $('chunkList');
-  if (!done) { el.innerHTML = '<div class="empty"><span class="spin"></span> …</div>'; return; }
-  if (!state.chunks.length) { el.innerHTML = `<div class="empty">—</div>`; return; }
-  el.innerHTML = '';
-  state.chunks.forEach(([a, b], i) => {
-    const len = b - a;
-    const txt = (state.chunkTexts && state.chunkTexts[i]) || `${a.toFixed(1)}–${b.toFixed(1)}s`;
-    const d = document.createElement('div');
-    d.className = 'chunk';
-    d.innerHTML = `<span class="dot"></span><span class="txt" title="${txt}">${txt}</span>` +
-      `<button class="hear" data-act="play">▶</button>` +
-      `<span class="len${len > 4 ? ' long' : ''}">${len > 4 ? '⚠ ' : ''}${len.toFixed(1)}s</span>`;
-    d.querySelector('[data-act=play]').onclick = e => { e.stopPropagation(); playRange(a, b, d); };
-    d.onclick = () => saveSegment(a, b);          // 单击即切换（不再需要「用这句」）
-    el.appendChild(d);
-  });
 }
 function playRange(a, b, rowEl) {
   document.querySelectorAll('.chunk.playing').forEach(x => x.classList.remove('playing'));
@@ -1075,19 +1060,10 @@ $('railExpand').onclick = () => setRail(false);
 $('railAdd').onclick = () => setRail(false);          // 加素材要用展开态里的抓取/截取
 function renderMini() {
   const el = $('railNums'); if (!el) return;
-  // 打开文章时列切出来的句子，否则列已存的参考句
-  const useChunks = state.chunks && state.chunks.length;
-  const items = useChunks
-    ? state.chunks.map(([a, b], i) => ({ n: i + 1, title: (state.chunkTexts && state.chunkTexts[i]) || `${a.toFixed(1)}–${b.toFixed(1)}s`, go: () => saveSegment(a, b), a, b }))
-    : state.segments.map((s, i) => ({ n: i + 1, title: segTitle(s), go: () => useRef(s.path), path: s.path }));
-  let cur = -1;
+  // 只列已存的参考句；候选不列——正文里点哪句练哪句
+  const items = state.segments.map((s, i) => ({ n: i + 1, title: segTitle(s), go: () => useRef(s.path), path: s.path }));
   const r = state.ref;
-  if (useChunks && refMatchesArticle()) {            // 当前句 = 和正在练的时间段重叠最多的那段
-    let best = 0;
-    items.forEach((it, i) => { const ov = Math.min(it.b, r.end) - Math.max(it.a, r.start); if (ov > best) { best = ov; cur = i; } });
-  } else if (!useChunks && r) {
-    cur = items.findIndex(it => it.path === r.path);
-  }
+  const cur = r ? items.findIndex(it => it.path === r.path) : -1;
   el.innerHTML = '';
   items.forEach((it, i) => {
     const b = document.createElement('button');
