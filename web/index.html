@@ -259,6 +259,7 @@ details.other>*:not(summary){margin:0 15px 15px}
 .stair.alt{border-color:var(--bd-weak);background:var(--bg-feed)}
 .stair .hd span{font-size:11.5px;color:var(--ink4)}
 .stair .lg{display:flex;gap:14px;font-size:11px;color:var(--ink4);margin-bottom:2px}
+.metric .sub{font-size:11px;color:var(--ink5);margin-top:3px;line-height:1.4}
 .stair .lg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .stair svg{width:100%;height:58px;display:block}
 .stair .kn{display:grid;text-align:center;margin-top:-1px}
@@ -594,6 +595,7 @@ details.more img{width:100%;margin-top:10px;border-radius:9px;border:1px solid v
                 <div class="bar"><i id="bCorr"></i></div></div>
               <div class="metric"><div class="k" data-t="mAmp">幅度（比播音员）</div>
                 <div class="row"><div class="v" id="mAmp">–</div><div class="goal" id="goalAmp">/ 58%</div></div>
+                <div class="sub" id="spanNote"></div>
                 <div class="bar"><i id="bAmp"></i></div></div>
               <div class="metric"><div class="k" data-t="mRate">速度（时长比）</div>
                 <div class="row"><div class="v" id="mRatio">–</div><div class="goal" id="goalRatio">/ 1.0×</div></div>
@@ -693,6 +695,7 @@ const STR = {
     recHint:"可以连读三四遍再停，会自动挑最好的一遍。", analyzing:"分析中…",
     feedback:"フィードバック", fbEmpty:"录一遍就能看到反馈。",
     mShape:"形状（相关）", mAmp:"幅度（比播音员）", mRate:"速度（时长比）",
+    spanNote:"播音员在 {a} 半音里起伏，你用了 {b} 半音",
     chartTitle:"音高曲线对比", anchor:"播音员", you:"你（已对齐）",
     kanaOn:"全部标假名", kanaOff:"只标问题字",
     chartNote:"纵轴：半音，相对各自中位数；横轴：秒。曲线上只标了偏差最大的几个假名，＋是你读高了，−是你读低了。",
@@ -727,6 +730,7 @@ const STR = {
     recHint:"三、四回続けて読んでから止めても、一番良いテイクを自動で選びます。", analyzing:"分析中…",
     feedback:"フィードバック", fbEmpty:"一度録音するとここに結果が出ます。",
     mShape:"形（相関）", mAmp:"幅（アナ比）", mRate:"速さ（長さ比）",
+    spanNote:"アナは {a} 半音の幅、あなたは {b} 半音",
     chartTitle:"ピッチ曲線の比較", anchor:"アナウンサー", you:"あなた（整列済み）",
     kanaOn:"すべての仮名", kanaOff:"ずれた仮名のみ",
     chartNote:"縦軸：半音（各自の中央値からの差）／横軸：秒。ずれの大きい仮名だけ表示。＋は高すぎ、−は低すぎ。",
@@ -1327,6 +1331,9 @@ function showResult(r, keepCombo) {
   };
   set('mCorr','bCorr', r.corr.toFixed(2), cShape, r.corr * 100);
   set('mAmp','bAmp', Math.round(r.amp * 100) + '%', cAmp, r.amp * 100);
+  // 百分比看不出这意味着多大差距，把半音数直接写出来
+  $('spanNote').textContent = (r.ref_span && r.my_span)
+    ? T('spanNote').replace('{a}', r.ref_span).replace('{b}', r.my_span) : '';
   set('mRatio','bRatio', r.ratio.toFixed(2) + '×', cRate, Math.min(r.ratio, 1 / r.ratio) * 100);
 
   const corrBad = r.corr < 0.8, ampBad = r.amp < 0.6 || r.amp > 1.6, ratioBad = r.ratio > 1.15 || r.ratio < 0.8;
@@ -1343,8 +1350,10 @@ function showResult(r, keepCombo) {
   // 台阶：反馈栏画「目标 vs 你」；中栏那个始终只画目标。
   // 两处都叠上录音等于同一张图画两遍，而中栏的作用是"照着读"，多一条红线只会干扰。
   if (state.target && r.mora && r.mora.length === state.target.kana.length) {
+    const dv = zdev(r.mora);
     renderStair($('stairFb'), { kana: state.target.kana, levels: state.target.levels,
-                                user: binLevels(r.mora, 'my_pitch') });
+                                user: binLevels(r.mora, 'my_pitch'),
+                                off: dv.map(v => v != null && Math.abs(v) > DEV_BAD) });
     renderStair($('stairMain'), state.target);
   }
 
@@ -1704,19 +1713,58 @@ async function loadTarget(path) {
 
 /* 挑选顺序（交接文档 §4.3 的表）：调型 > 幅度 > 速度。
    同一条连着给两遍 → 换个说法更具体；连着四遍还不过 → 提议先去模式① 练那个音。 */
+/* ===== 逐拍偏差：和播音员比，不和词典比 =====
+   词典给的是「孤立形」调型；连读时经过アクセント句合并和 downstep 就不成立了——
+   实测一篇新闻里词典和播音员实测在 29% 的拍上矛盾，那些拍怎么读都会被判错。
+   跟读的定义本来就是模仿播音员，所以直接比两边的音高，同一种测法。
+
+   两条曲线各自 z 标准化后再相减：只比形状，不比跨度。跨度是「幅度」那一项的事，
+   混进来会把「读得平」变成「处处都错」。实测取「最偏 3 拍」，z 标准化后随机分半
+   重合 92%，原始半音差只有 61%、只去偏移 55%。 */
+function zdev(mora) {
+  const out = mora.map(() => null), idx = [], my = [], rf = [];
+  mora.forEach((m, i) => {
+    if (m.my_pitch == null || m.ref_pitch == null) return;
+    idx.push(i); my.push(m.my_pitch); rf.push(m.ref_pitch);
+  });
+  if (idx.length < 3) return out;
+  const norm = v => {
+    const mu = v.reduce((a, b) => a + b, 0) / v.length;
+    const sd = Math.sqrt(v.reduce((a, b) => a + (b - mu) ** 2, 0) / v.length) || 1;
+    return v.map(y => (y - mu) / sd);
+  };
+  const A = norm(my), B = norm(rf);
+  idx.forEach((i, k) => { out[i] = A[k] - B[k]; });
+  return out;
+}
+
+/* 跨次累积。单次挑「最偏的一拍」不可靠——实测随机分半只有 14% 选出同一拍，
+   因为常有四五拍偏得一样多，每次指一个，人永远收敛不了。取近几次的平均。 */
+const DEV_BAD = 1.0;            // 偏离多少个标准差算「这一拍不对」
+function devProfile(len, n) {
+  const hs = ((state.ref && state.history[state.ref.path]) || [])
+    .filter(e => e.mora && e.mora.length === len);
+  if (!hs.length) return null;
+  const take = hs.slice(-(n || 5));
+  const sum = new Array(len).fill(0), cnt = new Array(len).fill(0);
+  take.forEach(e => zdev(e.mora).forEach((d, i) => { if (d != null) { sum[i] += d; cnt[i]++; } }));
+  const avg = sum.map((s, i) => (cnt[i] ? s / cnt[i] : null));
+  return { avg, n: take.length };
+}
+
 function oneThing(r) {
   const L = LV();
   let bad = null;
-  if (r.mora && r.mora.length && state.target) {
-    const user = binLevels(r.mora, 'my_pitch'), tgt = state.target.levels;
-    let worst = -1, wi = -1;
-    r.mora.forEach((m, i) => {
-      if (tgt[i] == null || user[i] == null || user[i] === tgt[i]) return;
-      const dev = Math.abs(m.pitch_diff ?? 0);
-      if (dev > worst) { worst = dev; wi = i; }
-    });
-    if (wi >= 0) bad = { kind: 'pitch', i: wi, mora: r.mora[wi].mora, up: state.target.levels[wi] === 1 };
-  } else if (r.corr < L.corr) {
+  if (r.mora && r.mora.length) {
+    // 优先看「这几次一直偏」的那一拍，只有一两次记录时才退回当次
+    const prof = devProfile(r.mora.length, 5);
+    const d = (prof && prof.n >= 3) ? prof.avg : zdev(r.mora);
+    let worst = DEV_BAD, wi = -1;
+    d.forEach((v, i) => { if (v != null && Math.abs(v) > worst) { worst = Math.abs(v); wi = i; } });
+    if (wi >= 0) bad = { kind: 'pitch', i: wi, mora: r.mora[wi].mora, up: d[wi] < 0,
+                         run_n: (prof && prof.n >= 3) ? prof.n : 0 };
+  }
+  if (!bad && r.corr < L.corr) {
     // 没做假名对齐就没有逐拍目标，这时至少要看整体形状——
     // 否则形状 0.66 也会因为幅度和速度过关而被报成「三项都达标」
     bad = { kind: 'shape' };
@@ -1758,7 +1806,10 @@ function renderStair(el, d, opt = {}) {
   if (!n) { el.hidden = true; return; }
   el.hidden = false;
   const user2 = user ? user.map((v, i) => levels[i] == null ? null : (v == null ? levels[i] : v)) : null;
-  const wrong = i => user && user[i] != null && levels[i] != null && user[i] !== levels[i];
+  // 哪几拍算偏了：由调用方给（和播音员比出来的），别再用「二值化后和词典不符」——
+  // 词典和播音员在连读时有 29% 的拍矛盾，那样标出来的红拍有相当一部分是错的。
+  const off = d.off || null;
+  const wrong = i => off ? !!off[i] : (user && user[i] != null && levels[i] != null && user[i] !== levels[i]);
   const done = !!user;
   const tint = opt.color || '#2a78d6';                     // 对比词用别的颜色，免得和"要练的目标"混淆
   // 一行最多放这么多拍。不折行的话长句会把假名挤成一团——实测一句 60 拍时完全看不清。
