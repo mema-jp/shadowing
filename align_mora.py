@@ -261,11 +261,22 @@ def available() -> bool:
         return False
 
 
+# 一拍最长按这么多秒算。句尾那一拍常把后面的停顿一起吞进去（实测「す」拿到
+# 6.04–7.54s，1.5 秒），用真实中点判断归属就会把它排除在句子之外。超过这个长度
+# 的拍一律按起点附近判断。日语一拍约 0.10–0.20s，0.4s 已经很宽。
+MAX_MORA = 0.4
+
+
+def mora_mid(r: dict) -> float:
+    """判断某一拍属于哪一段时用的时间点。长拍只看开头那一截。"""
+    return (r["start"] + min(r["end"], r["start"] + MAX_MORA)) / 2
+
+
 def mora_in_range(alignment: list, start: float, end: float) -> list:
     """从整篇对齐结果里取出落在 [start, end] 内的拍，时间改成相对 start。"""
     out = []
     for r in alignment:
-        mid = (r["start"] + r["end"]) / 2
+        mid = mora_mid(r)
         if start <= mid <= end:
             out.append({**r, "start": round(r["start"] - start, 3), "end": round(r["end"] - start, 3)})
     return out

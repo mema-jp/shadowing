@@ -121,7 +121,7 @@ def target_levels(ref: str) -> dict:
     a, b = info["start"], info["end"]
     kana, levels = [], []
     for i, m in enumerate(al):
-        mid = (m["start"] + m["end"]) / 2
+        mid = align_mora.mora_mid(m)      # 句尾那拍会吞掉停顿，得按起点判断归属
         if a <= mid <= b:
             kana.append(m["mora"])
             levels.append(all_levels[i])
