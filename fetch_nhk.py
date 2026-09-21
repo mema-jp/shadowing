@@ -154,6 +154,40 @@ def mint_token(manifest: str, z_at: str) -> str:
     raise RuntimeError(f"token 响应里没有 hdnts: {data}")
 
 
+def m3u8_duration(text: str) -> float:
+    """播放列表里每个分片的 #EXTINF 之和 = 这段音频应有的时长。"""
+    return sum(float(m) for m in re.findall(r"#EXTINF:([\d.]+)", text))
+
+
+def mp3_duration(path: str) -> float:
+    """实际下到的时长；文件不存在或不可解码时返回 0。"""
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                        "-of", "csv=p=0", path], capture_output=True, text=True)
+    try:
+        return float(r.stdout.strip())
+    except ValueError:
+        return 0.0
+
+
+def audio_ok(out_mp3: str, want: float) -> bool:
+    """下全了吗。HLS 掉几个分片时 ffmpeg 常常照样返回 0，只看返回码和文件大小查不出来。"""
+    if not os.path.exists(out_mp3) or os.path.getsize(out_mp3) < 10_000:
+        return False
+    if want <= 0:                       # 播放列表没给时长，只能退回旧判据
+        return True
+    got = mp3_duration(out_mp3)
+    if got < want * 0.98:
+        print(f"    音频不完整：应有 {want:.1f}s，只下到 {got:.1f}s")
+        return False
+    # 能解码到底才算数（截断的文件前半段往往照样能播）
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", out_mp3, "-f", "null", "-"],
+                       capture_output=True, text=True)
+    if r.stderr.strip():
+        print("    音频解码有错：" + r.stderr.strip()[-120:])
+        return False
+    return True
+
+
 def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     stem = os.path.splitext(os.path.basename(uri))[0]
     manifest = f"{HLS_BASE}/{stem}/index.m3u8"
@@ -164,13 +198,15 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
 
     common = ["ffmpeg", "-y", "-loglevel", "error", "-user_agent", UA,
               "-headers", f"Referer: {BASE}/news/easy/\r\n"]
+    text = http_get(tokenized).decode("utf-8")
+    want = m3u8_duration(text)          # 播放列表自带标准答案，用它验收
+
     # 方式一：直接把带 token 的地址给 ffmpeg
     r = subprocess.run(common + ["-i", tokenized, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_mp3],
                        capture_output=True, text=True)
-    if r.returncode == 0 and os.path.getsize(out_mp3) > 10_000:
+    if r.returncode == 0 and audio_ok(out_mp3, want):
         return
     # 方式二：把 m3u8 下载到本地，每个分片地址后面都补上 token
-    text = http_get(tokenized).decode("utf-8")
     lines = []
     for ln in text.splitlines():
         s = ln.strip()
@@ -187,6 +223,9 @@ def download_audio(uri: str, z_at: str, out_mp3: str) -> None:
     os.remove(local)
     if r.returncode != 0:
         raise RuntimeError("ffmpeg 失败: " + r.stderr.strip()[-300:])
+    if not audio_ok(out_mp3, want):
+        raise RuntimeError(f"音频下载不完整（应有 {want:.1f}s，实得 {mp3_duration(out_mp3):.1f}s），"
+                           "稍后重试；反复失败多半是 z_at 过期")
 
 
 # ---------- 主流程 ----------
